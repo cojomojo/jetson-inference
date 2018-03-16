@@ -34,8 +34,8 @@ if (CMAKE_SYSTEM_PROCESSOR STREQUAL "armv7l")
 	message("-- Detected ${CMAKE_SYSTEM_PROCESSOR} assuming TK1")
 	set(
 		CUDA_NVCC_FLAGS
-		${CUDA_NVCC_FLAGS}; 
-        	-O3 -gencode arch=compute_32,code=sm_32, -std=c++11 -Xcompiler -D__CORRECT_ISO_CPP11_MATH_H_PROTO 
+		${CUDA_NVCC_FLAGS};
+        	-O3 -gencode arch=compute_32,code=sm_32, -std=c++11 -Xcompiler -D__CORRECT_ISO_CPP11_MATH_H_PROTO
 )
 else()
 	# TX2 R27.0
@@ -43,21 +43,21 @@ else()
 		message("-- Detected ${CMAKE_SYSTEM_PROCESSOR} assuming TX2 (${CMAKE_SYSTEM})")
 		set(
 			CUDA_NVCC_FLAGS
-			${CUDA_NVCC_FLAGS}; 
+			${CUDA_NVCC_FLAGS};
         		-O3 -gencode arch=compute_62,code=compute_62)
 	# TX2 assume strings greater are future releases
 	elseif(CMAKE_SYSTEM STRGREATER "Linux-4.4.15-tegra")
 		message("-- Detected ${CMAKE_SYSTEM_PROCESSOR} assuming TX2 (${CMAKE_SYSTEM})")
 		set(
 			CUDA_NVCC_FLAGS
-			${CUDA_NVCC_FLAGS}; 
+			${CUDA_NVCC_FLAGS};
         		-O3 -gencode arch=compute_62,code=compute_62)
 	# Older kernel versions assume TX1
 	else()
 		message("-- Detected ${CMAKE_SYSTEM_PROCESSOR} assuming TX1")
 		set(
 			CUDA_NVCC_FLAGS
-			${CUDA_NVCC_FLAGS}; 
+			${CUDA_NVCC_FLAGS};
         		-O3 -gencode arch=compute_53,code=sm_53 )
 	endif()
 endif()
@@ -66,6 +66,16 @@ endif()
 if(EXISTS "/usr/local/lib/libaravis-0.6.so")
   include_directories(/usr/local/include/aravis-0.6)
   set(ARAVIS_LIB aravis-0.6)
+endif()
+
+# Pylon setup if installed
+if(EXISTS "/opt/pylon5/")
+  set(PYLON_ROOT /opt/pylon5/)
+  execute_process(COMMAND "${PYLON_ROOT}/bin/pylon-config --cflags | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//''" OUTPUT_VARIABLE PYLON_INCLUDE)
+  include_directories(PYLON_INCLUDE)
+  execute_process(COMMAND "${PYLON_ROOT}/bin/pylon-config --libs-rpath | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//''" OUTPUT_VARIABLE PYLON_LIB_DEP)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PYLON_LIB_DEP}")
+  execute_process(COMMAND "${PYLON_ROOT}/bin/pylon-config --libs | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//''" OUTPUT_VARIABLE PYLON_LIB)
 endif()
 
 # setup project output paths
@@ -90,7 +100,7 @@ file(GLOB inferenceSources *.cpp *.cu camera/*.cpp cuda/*.cu display/*.cpp)
 file(GLOB inferenceIncludes *.h camera/*.h cuda/*.h display/*.h)
 
 cuda_add_library(jetson-inference SHARED ${inferenceSources})
-target_link_libraries(jetson-inference nvcaffe_parser nvinfer Qt4::QtGui GL GLEW gstreamer-1.0 gstapp-1.0 ${ARAVIS_LIB})		# gstreamer-0.10 gstbase-0.10 gstapp-0.10 
+target_link_libraries(jetson-inference nvcaffe_parser nvinfer Qt4::QtGui GL GLEW gstreamer-1.0 gstapp-1.0 ${PYLON_LIB})		# gstreamer-0.10 gstbase-0.10 gstapp-0.10
 
 
 # transfer all headers to the include directory
