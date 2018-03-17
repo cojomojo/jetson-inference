@@ -88,6 +88,38 @@ void pylonCamera::Close()
 	}
 }
 
+bool pylonCamera::StartGrabbing()
+{
+    // Get all cameras running in free-run mode. Images will be captured and put into a queue for retrieving
+    // using RetrieveImage. The available grab strategies are:
+    // GrabStrategy_OneByOne
+    // The images are processed in the order of their arrival. This is the default grab strategy.
+    //
+    // GrabStrategy_LatestImageOnly
+    // Only the latest image is kept in the output queue, all other grabbed images are skipped. If no image is in the
+    // output queue when retrieving an image with CInstantCamera::RetrieveResult(), the processing waits for the upcoming
+    // image.
+    //
+    // GrabStrategy_LatestImages
+    // This strategy can be used to grab images while keeping only the latest images. If the application does not
+    // retrieve all images in time, all other grabbed images are skipped. The CInstantCamera::OutputQueueSize parameter
+    // can be used to control how many images can be queued in the output queue. When setting the output queue size to 1,
+    // this strategy is equivalent to GrabStrategy_LatestImageOnly grab strategy. When setting the output queue size to
+    // CInstantCamera::MaxNumBuffer, this strategy is equivalent to GrabStrategy_OneByOne.
+    //
+    // GrabStrategy_UpcomingImage
+    // The input buffer queue is kept empty. This prevents grabbing. However, when retrieving an image with a call to
+    // the CInstantCamera::RetrieveResult() method a buffer is queued into the input queue and then the call waits for
+    // the upcoming image. The buffer is removed from the queue on timeout. Hence after the call to the
+    // CInstantCamera::RetrieveResult() method the input buffer queue is empty again. The upcoming image grab strategy
+    // cannot be used together with USB camera devices. See the advanced topics section of the pylon Programmer's Guide
+    // for more information.
+
+    std::cout << LOG_PYLON << "Starting Pylon driver grab engine..." << std::endl;
+    cameras_->StartGrabbing(Pylon::EGrabStrategy::GrabStrategy_LatestImageOnly);
+    return true;
+}
+
 
 bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_MAX)
 {
@@ -102,6 +134,11 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_M
         {
             std::cout << LOG_PYLON << "Cameras are not grabbing. Call StartCameras() first." << std::endl;
             return false;
+        }
+        else
+        {
+            std::cout << LOG_PYLON << "Starting to grab frames with cameras." << std::endl;
+            mCameras->StartGrabbing();
         }
 
         static int cam_index = 0;
