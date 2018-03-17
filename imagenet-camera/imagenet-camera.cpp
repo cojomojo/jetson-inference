@@ -77,9 +77,7 @@ int main( int argc, char** argv )
 	
 	CameraNode cam1("22334243" /*"22279978"*/);
 	std::vector<CameraNode*> cameras = { &cam1 };
-	pylonCamera pcam(cameras, 960, 1280);
-	pcam.StartGrabbing();
-	camera* camera = &pcam;
+	camera* camera = new pylonCamera(cameras, 960, 1280);
 	
 	if( !camera )
 	{
@@ -157,11 +155,11 @@ int main( int argc, char** argv )
 		//else
 		//	printf("imagenet-camera:  recieved new frame  CPU=0x%p  GPU=0x%p\n", imgCPU, imgCUDA);
 
-		// convert from YUV to RGBA
+		// convert from Bayer GR8 to RGBA
 		void* imgRGBA = NULL;
 
-		if( !camera->ConvertRGBtoRGBA(imgCUDA, &imgRGBA) )
-			printf("imagenet-camera:  failed to convert from NV12 to RGBA\n");
+		if( !camera->ConvertBAYER_GR8toRGBA(imgCUDA, &imgRGBA) )
+			printf("imagenet-camera:  failed to convert from Bayer GR8 to RGBA\n");
 
 		// classify image
 		const int img_class = net->Classify((float*)imgRGBA, camera->GetWidth(), camera->GetHeight(), &confidence);

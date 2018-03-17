@@ -25,7 +25,7 @@ pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
     }
  
     // TODO: unhardcode mDepth by calculating it in Capture()
-    mDepth = 3;
+    mDepth = 1;
 }
 
 
@@ -56,7 +56,11 @@ bool pylonCamera::Open()
         }
 
         // Initialize mNextImage as an empty image.
-        mNextImage.Reset(Pylon::EPixelType::PixelType_RGB8packed, mWidth, mHeight);
+        mNextImage.Reset(Pylon::EPixelType::PixelType_BayerGR8, mWidth, mHeight);
+        //mDepth = mNextImage.GetImageSize()/(mWidth*mHeight);
+	
+	// Start the camera frame grabbing.
+	StartGrabbing();
 
         return true;
     }
@@ -142,11 +146,14 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_M
         static int cam_index = 0;
 
         Pylon::CGrabResultPtr grabResult;
-        (*mCameras)[cam_index].RetrieveResult(timeout/1000, grabResult, Pylon::ETimeoutHandling::TimeoutHandling_ThrowException);
+        (*mCameras)[cam_index].RetrieveResult(timeout, grabResult, Pylon::ETimeoutHandling::TimeoutHandling_ThrowException);
         if (grabResult->GrabSucceeded())
         {
             if (!formatConverter.ImageHasDestinationFormat(grabResult))
+	    {
+		std::cout << LOG_PYLON << "image format didnt match, now convertng" << std::endl;
                 formatConverter.Convert(mNextImage, grabResult);
+	    }
             else if (formatConverter.ImageHasDestinationFormat(grabResult))
                 mNextImage.CopyImage(grabResult);
 
@@ -156,16 +163,16 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_M
         else
         {
             intptr_t cameraContextValue = grabResult->GetCameraContext();
-            std::cout << LOG_PYLON << "Pylon: Grab result failed for camera " << cameraContextValue << ": "
+            std::cout << LOG_PYLON << "Grab result failed for camera " << cameraContextValue << ": "
                 << grabResult->GetErrorDescription() << std::endl;
         }
 
         if( cpu != NULL )
             *cpu = mNextImage.GetBuffer();
-        if( cuda != NULL )
+	if( cuda != NULL )
             *cuda = mNextImage.GetBuffer();
-
-        // Increment camera index no matter what. This way if a camera fails, all cameras are not stalled.
+        
+	// Increment camera index no matter what. This way if a camera fails, all cameras are not stalled.
         cam_index = ((cam_index+1) < mCameras->GetSize()) ? cam_index+1 : 0;
 
         mRetrieveMutex.unlock();
