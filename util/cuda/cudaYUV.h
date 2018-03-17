@@ -142,9 +142,22 @@ cudaError_t cudaNV12ToRGBAf( uint8_t* input, float4* output, size_t width, size_
  * However if you want to setup custom constants (ie with a hue different than 0),
  * then you can call cudaNV12SetupColorspace() at any time, overriding the default.
  */
-cudaError_t cudaNV12SetupColorspace( float hue = 0.0f ); 
+cudaError_t cudaNV12SetupColorspace( float hue = 0.0f );
 
 ///@}
+
+//////////////////////////////////////////////////////////////////////////////////
+/// @name YUV YUV to RGBA
+/// @ingroup util
+//////////////////////////////////////////////////////////////////////////////////
+
+///@{
+
+cudaError_t cudaYUVToRGBAf( uint8_t* srcDev, size_t srcPitch, float4* destDev, size_t destPitch, size_t width, size_t height );
+cudaError_t cudaYUVToRGBAf( uint8_t* srcDev, float4* destDev, size_t width, size_t height );
+
+///@}
+
 
 #endif
 

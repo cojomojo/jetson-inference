@@ -26,7 +26,7 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsink.h>
 
-#include <sstream> 
+#include <sstream>
 #include <unistd.h>
 #include <string.h>
 
@@ -42,25 +42,26 @@
 
 // constructor
 gstCamera::gstCamera()
-{	
+	: camera(0, 0)
+{
 	mAppSink    = NULL;
 	mBus        = NULL;
-	mPipeline   = NULL;	
+	mPipeline   = NULL;
 	mV4L2Device = -1;
-	
+
 	mWidth  = 0;
 	mHeight = 0;
 	mDepth  = 0;
 	mSize   = 0;
-	
+
 	mWaitEvent  = new QWaitCondition();
 	mWaitMutex  = new QMutex();
 	mRingMutex  = new QMutex();
-	
+
 	mLatestRGBA       = 0;
 	mLatestRingbuffer = 0;
 	mLatestRetrieved  = false;
-	
+
 	for( uint32_t n=0; n < NUM_RINGBUFFERS; n++ )
 	{
 		mRingbufferCPU[n] = NULL;
@@ -70,10 +71,10 @@ gstCamera::gstCamera()
 }
 
 
-// destructor	
+// destructor
 gstCamera::~gstCamera()
 {
-	
+
 }
 
 
@@ -82,7 +83,7 @@ bool gstCamera::ConvertRGBA( void* input, void** output, bool zeroCopy )
 {
 	if( !input || !output )
 		return false;
-	
+
 	if( !mRGBA[0] )
 	{
 		const size_t size = mWidth * mHeight * sizeof(float4);
@@ -117,10 +118,10 @@ bool gstCamera::ConvertRGBA( void* input, void** output, bool zeroCopy )
 				}
 			}
 		}
-		
+
 		printf(LOG_CUDA "gstreamer camera -- allocated %u RGBA ringbuffers\n", NUM_RINGBUFFERS);
 	}
-	
+
 	if( onboardCamera() )
 	{
 		// onboard camera is NV12
@@ -133,7 +134,7 @@ bool gstCamera::ConvertRGBA( void* input, void** output, bool zeroCopy )
 		if( CUDA_FAILED(cudaRGBToRGBAf((uchar3*)input, (float4*)mRGBA[mLatestRGBA], mWidth, mHeight)) )
 			return false;
 	}
-	
+
 	*output     = mRGBA[mLatestRGBA];
 	mLatestRGBA = (mLatestRGBA + 1) % NUM_RINGBUFFERS;
 	return true;
@@ -159,17 +160,17 @@ GstFlowReturn gstCamera::onPreroll(_GstAppSink* sink, void* user_data)
 GstFlowReturn gstCamera::onBuffer(_GstAppSink* sink, void* user_data)
 {
 	//printf(LOG_GSTREAMER "gstreamer decoder onBuffer\n");
-	
+
 	if( !user_data )
 		return GST_FLOW_OK;
-		
+
 	gstCamera* dec = (gstCamera*)user_data;
-	
+
 	dec->checkBuffer();
 	dec->checkMsgBus();
 	return GST_FLOW_OK;
 }
-	
+
 
 // Capture
 bool gstCamera::Capture( void** cpu, void** cuda, unsigned long timeout )
@@ -177,26 +178,26 @@ bool gstCamera::Capture( void** cpu, void** cuda, unsigned long timeout )
 	mWaitMutex->lock();
     const bool wait_result = mWaitEvent->wait(mWaitMutex, timeout);
     mWaitMutex->unlock();
-	
+
 	if( !wait_result )
 		return false;
-	
+
 	mRingMutex->lock();
 	const uint32_t latest = mLatestRingbuffer;
 	const bool retrieved = mLatestRetrieved;
 	mLatestRetrieved = true;
 	mRingMutex->unlock();
-	
+
 	// skip if it was already retrieved
 	if( retrieved )
 		return false;
-	
+
 	if( cpu != NULL )
 		*cpu = mRingbufferCPU[latest];
-	
+
 	if( cuda != NULL )
 		*cuda = mRingbufferGPU[latest];
-	
+
 	return true;
 }
 
@@ -212,79 +213,79 @@ void gstCamera::checkBuffer()
 
 	// block waiting for the buffer
 	GstSample* gstSample = gst_app_sink_pull_sample(mAppSink);
-	
+
 	if( !gstSample )
 	{
 		printf(LOG_GSTREAMER "gstreamer camera -- gst_app_sink_pull_sample() returned NULL...\n");
 		return;
 	}
-	
+
 	GstBuffer* gstBuffer = gst_sample_get_buffer(gstSample);
-	
+
 	if( !gstBuffer )
 	{
 		printf(LOG_GSTREAMER "gstreamer camera -- gst_sample_get_buffer() returned NULL...\n");
 		return;
 	}
-	
-	// retrieve
-	GstMapInfo map; 
 
-	if(	!gst_buffer_map(gstBuffer, &map, GST_MAP_READ) ) 
+	// retrieve
+	GstMapInfo map;
+
+	if(	!gst_buffer_map(gstBuffer, &map, GST_MAP_READ) )
 	{
 		printf(LOG_GSTREAMER "gstreamer camera -- gst_buffer_map() failed...\n");
 		return;
 	}
-	
-	//gst_util_dump_mem(map.data, map.size); 
+
+	//gst_util_dump_mem(map.data, map.size);
 
 	void* gstData = map.data; //GST_BUFFER_DATA(gstBuffer);
 	const uint32_t gstSize = map.size; //GST_BUFFER_SIZE(gstBuffer);
-	
+
 	if( !gstData )
 	{
 		printf(LOG_GSTREAMER "gstreamer camera -- gst_buffer had NULL data pointer...\n");
 		release_return;
 	}
-	
+
 	// retrieve caps
 	GstCaps* gstCaps = gst_sample_get_caps(gstSample);
-	
+
 	if( !gstCaps )
 	{
 		printf(LOG_GSTREAMER "gstreamer camera -- gst_buffer had NULL caps...\n");
 		release_return;
 	}
-	
+
 	GstStructure* gstCapsStruct = gst_caps_get_structure(gstCaps, 0);
-	
+
 	if( !gstCapsStruct )
 	{
 		printf(LOG_GSTREAMER "gstreamer camera -- gst_caps had NULL structure...\n");
 		release_return;
 	}
-	
+
 	// get width & height of the buffer
 	int width  = 0;
 	int height = 0;
-	
+
 	if( !gst_structure_get_int(gstCapsStruct, "width", &width) ||
 		!gst_structure_get_int(gstCapsStruct, "height", &height) )
 	{
 		printf(LOG_GSTREAMER "gstreamer camera -- gst_caps missing width/height...\n");
 		release_return;
 	}
-	
+
 	if( width < 1 || height < 1 )
 		release_return;
-	
+
 	mWidth  = width;
 	mHeight = height;
 	mDepth  = (gstSize * 8) / (width * height);
 	mSize   = gstSize;
-	
+
 	//printf(LOG_GSTREAMER "gstreamer camera recieved %ix%i frame (%u bytes, %u bpp)\n", width, height, gstSize, mDepth);
-	
+
 	// make sure ringbuffer is allocated
 	if( !mRingbufferCPU[0] )
 	{
@@ -293,20 +294,20 @@ void gstCamera::checkBuffer()
 			if( !cudaAllocMapped(&mRingbufferCPU[n], &mRingbufferGPU[n], gstSize) )
 				printf(LOG_CUDA "gstreamer camera -- failed to allocate ringbuffer %u  (size=%u)\n", n, gstSize);
 		}
-		
+
 		printf(LOG_CUDA "gstreamer camera -- allocated %u ringbuffers, %u bytes each\n", NUM_RINGBUFFERS, gstSize);
 	}
-	
+
 	// copy to next ringbuffer
-	const uint32_t nextRingbuffer = (mLatestRingbuffer + 1) % NUM_RINGBUFFERS;		
-	
+	const uint32_t nextRingbuffer = (mLatestRingbuffer + 1) % NUM_RINGBUFFERS;
+
 	//printf(LOG_GSTREAMER "gstreamer camera -- using ringbuffer #%u for next frame\n", nextRingbuffer);
 	memcpy(mRingbufferCPU[nextRingbuffer], gstData, gstSize);
-	gst_buffer_unmap(gstBuffer, &map); 
+	gst_buffer_unmap(gstBuffer, &map);
 	//gst_buffer_unref(gstBuffer);
 	gst_sample_unref(gstSample);
-	
-	
+
+
 	// update and signal sleeping threads
 	mRingMutex->lock();
 	mLatestRingbuffer = nextRingbuffer;
@@ -323,7 +324,7 @@ bool gstCamera::buildLaunchStr()
 	// gst-launch-1.0 nvcamerasrc fpsRange="30.0 30.0" ! 'video/x-raw(memory:NVMM), width=(int)1920, height=(int)1080, format=(string)I420, framerate=(fraction)30/1' ! \
 	// nvvidconv flip-method=2 ! 'video/x-raw(memory:NVMM), format=(string)I420' ! fakesink silent=false -v
 	std::ostringstream ss;
-	
+
 //#define CAPS_STR "video/x-raw(memory:NVMM), width=(int)2592, height=(int)1944, format=(string)I420, framerate=(fraction)30/1"
 //#define CAPS_STR "video/x-raw(memory:NVMM), width=(int)1920, height=(int)1080, format=(string)I420, framerate=(fraction)30/1"
 
@@ -334,18 +335,18 @@ bool gstCamera::buildLaunchStr()
 	#else
 		const int flipMethod = 2;
 	#endif
-	
+
 		ss << "nvcamerasrc fpsRange=\"30.0 30.0\" ! video/x-raw(memory:NVMM), width=(int)" << mWidth << ", height=(int)" << mHeight << ", format=(string)NV12 ! nvvidconv flip-method=" << flipMethod << " ! "; //'video/x-raw(memory:NVMM), width=(int)1920, height=(int)1080, format=(string)I420, framerate=(fraction)30/1' ! ";
 		ss << "video/x-raw ! appsink name=mysink";
 	}
 	else
 	{
 		ss << "v4l2src device=/dev/video" << mV4L2Device << " ! ";
-		ss << "video/x-raw, width=(int)" << mWidth << ", height=(int)" << mHeight << ", "; 
+		ss << "video/x-raw, width=(int)" << mWidth << ", height=(int)" << mHeight << ", ";
 		ss << "format=RGB ! videoconvert ! video/x-raw, format=RGB ! videoconvert !";
 		ss << "appsink name=mysink";
 	}
-	
+
 	mLaunchStr = ss.str();
 
 	printf(LOG_GSTREAMER "gstreamer decoder pipeline string:\n");
@@ -362,12 +363,12 @@ gstCamera* gstCamera::Create( uint32_t width, uint32_t height, int v4l2_device )
 		printf(LOG_GSTREAMER "failed to initialize gstreamer API\n");
 		return NULL;
 	}
-	
+
 	gstCamera* cam = new gstCamera();
-	
+
 	if( !cam )
 		return NULL;
-	
+
 	cam->mV4L2Device = v4l2_device;
 	cam->mWidth      = width;
 	cam->mHeight     = height;
@@ -379,7 +380,7 @@ gstCamera* gstCamera::Create( uint32_t width, uint32_t height, int v4l2_device )
 		printf(LOG_GSTREAMER "failed to init gstCamera\n");
 		return NULL;
 	}
-	
+
 	return cam;
 }
 
@@ -420,7 +421,7 @@ bool gstCamera::init()
 	{
 		printf(LOG_GSTREAMER "gstreamer failed to cast GstElement into GstPipeline\n");
 		return false;
-	}	
+	}
 
 	// retrieve pipeline bus
 	/*GstBus**/ mBus = gst_pipeline_get_bus(pipeline);
@@ -443,19 +444,19 @@ bool gstCamera::init()
 		printf(LOG_GSTREAMER "gstreamer failed to retrieve AppSink element from pipeline\n");
 		return false;
 	}
-	
+
 	mAppSink = appsink;
-	
+
 	// setup callbacks
 	GstAppSinkCallbacks cb;
 	memset(&cb, 0, sizeof(GstAppSinkCallbacks));
-	
+
 	cb.eos         = onEOS;
 	cb.new_preroll = onPreroll;
 	cb.new_sample  = onBuffer;
-	
+
 	gst_app_sink_set_callbacks(mAppSink, &cb, (void*)this, NULL);
-	
+
 	return true;
 }
 
@@ -465,14 +466,14 @@ bool gstCamera::Open()
 {
 	// transition pipline to STATE_PLAYING
 	printf(LOG_GSTREAMER "gstreamer transitioning pipeline to GST_STATE_PLAYING\n");
-	
+
 	const GstStateChangeReturn result = gst_element_set_state(mPipeline, GST_STATE_PLAYING);
 
 	if( result == GST_STATE_CHANGE_ASYNC )
 	{
 #if 0
-		GstMessage* asyncMsg = gst_bus_timed_pop_filtered(mBus, 5 * GST_SECOND, 
-    	 					      (GstMessageType)(GST_MESSAGE_ASYNC_DONE|GST_MESSAGE_ERROR)); 
+		GstMessage* asyncMsg = gst_bus_timed_pop_filtered(mBus, 5 * GST_SECOND,
+    	 					      (GstMessageType)(GST_MESSAGE_ASYNC_DONE|GST_MESSAGE_ERROR));
 
 		if( asyncMsg != NULL )
 		{
@@ -495,7 +496,7 @@ bool gstCamera::Open()
 
 	return true;
 }
-	
+
 
 // Close
 void gstCamera::Close()

@@ -31,7 +31,7 @@
 #define FIXED_COLOR_COMPONENT_MASK      0xffffffff
 
 #define MUL(x,y)    (x*y)
-
+#define LIMIT_RGB(x)    (((x)<0)?0:((x)>255)?255:(x))
 
 
 __constant__ uint32_t constAlpha;
@@ -41,7 +41,7 @@ __constant__ float  constHueColorSpaceMat[9];
 
 __device__ void YUV2RGB(uint32_t *yuvi, float *red, float *green, float *blue)
 {
-   
+
 
     // Prepare for hue adjustment
     /*
@@ -77,6 +77,31 @@ __device__ void YUV2RGB(uint32_t *yuvi, float *red, float *green, float *blue)
 	*red    = luma + 1.140f * v;
 	*green  = luma - 0.395f * u - 0.581f * v;
 	*blue   = luma + 2.032f * u;
+}
+
+
+__device__ void YUV82RGB(uint8_t *yuvi, float *red, float *green, float *blue)
+{
+	const float y0 = float(yuvi[0]);
+	const float cb0    = float(yuvi[1]);
+	const float cr0    = float(yuvi[2]);
+
+    //printf("YUV luma=%f, u=%f, v=%f\n", y0, cb0, cr0);
+
+	unsigned char r0(LIMIT_RGB(round((298.082 * y0) / 256.0 + (408.583 * cr0) / 256.0 - 222.921)));
+
+
+	unsigned char g0(LIMIT_RGB(round((298.082 * y0) / 256.0 - (100.291 * cb0) / 256.0
+			- (208.120 * cr0) / 256.0 + 135.576)));
+
+
+	unsigned char b0(LIMIT_RGB(round((298.082 * y0) / 256.0 + (516.412 * cb0) / 256.0 - 276.836)));
+
+	*red    = (float)r0;
+	*green  = (float)g0;
+	*blue   = (float)b0;
+
+    //printf("RGB red=%f, green=%f, blue=%f\n", *red , *green, *blue);
 }
 
 
@@ -259,7 +284,7 @@ cudaError_t cudaNV12ToRGBA( uint8_t* srcDev, size_t srcPitch, uchar4* destDev, s
 	const dim3 gridDim((width+(2*blockDim.x-1))/(2*blockDim.x), (height+(blockDim.y-1))/blockDim.y, 1);
 
 	NV12ToARGB<<<gridDim, blockDim>>>( (uint32_t*)srcDev, srcPitch, (uint32_t*)destDev, destPitch, width, height );
-	
+
 	return CUDA(cudaGetLastError());
 }
 
@@ -292,7 +317,7 @@ __global__ void NV12ToRGBAf(uint32_t* srcImage,  size_t nSourcePitch,
     if (y >= height)
         return; // y = height - 1;
 
-#if 1	
+#if 1
     // Read 2 Luma components at a time, so we don't waste processing since CbCr are decimated this way.
     // if we move to texture we could read 4 luminance values
     yuv101010Pel[0] = (srcImageU8[y * processingPitch + x    ]) << 2;
@@ -355,7 +380,7 @@ __global__ void NV12ToRGBAf(uint32_t* srcImage,  size_t nSourcePitch,
 	dstImage[y * width + x + 1] = make_float4(red[1] * s, green[1] * s, blue[1] * s, 1.0f);
 #else
 	//printf("cuda thread %i %i  %i %i \n", x, y, width, height);
-		
+
 	dstImage[y * width + x]     = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
 	dstImage[y * width + x + 1] = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
 #endif
@@ -380,7 +405,7 @@ cudaError_t cudaNV12ToRGBAf( uint8_t* srcDev, size_t srcPitch, float4* destDev, 
 	const dim3 gridDim(iDivUp(width,blockDim.x), iDivUp(height, blockDim.y), 1);
 
 	NV12ToRGBAf<<<gridDim, blockDim>>>( (uint32_t*)srcDev, srcPitch, destDev, destPitch, width, height );
-	
+
 	return CUDA(cudaGetLastError());
 }
 
@@ -440,3 +465,73 @@ cudaError_t cudaNV12SetupColorspace( float hue )
 	return cudaSuccess;
 }
 
+//-------------------------------------------------------------------------------------------------------------------------
+// RTP YUV color space conversion
+
+__global__ void YUVToRGBAf(uint32_t* srcImage,  size_t nSourcePitch,
+    float4* dstImage,     size_t nDestPitch,
+    uint32_t width,       uint32_t height)
+{
+    int x, y;
+    uint32_t processingPitch = ((width) + 63) & ~63;
+    uint8_t *srcImageU8     = (uint8_t *)srcImage;
+
+    processingPitch = nSourcePitch * 2;
+
+    // Pad borders with duplicate pixels, and we multiply by 2 because we process 2 pixels per thread
+    x = blockIdx.x * (blockDim.x << 1) + (threadIdx.x << 1);
+    y = blockIdx.y *  blockDim.y       +  threadIdx.y;
+
+    if (x >= width)
+    return; //x = width - 1;
+
+    if (y >= height)
+    return; // y = height - 1;
+
+    //printf(">>>>> processingPitch %u, x %u, y %u \n", processingPitch, x, y );
+
+    // this steps performs the color conversion
+    uint8_t yuvi[6];
+    float red[2], green[2], blue[2];
+
+    yuvi[0] = srcImageU8[y * processingPitch + x*2 +1]; //Y0
+    yuvi[1] = srcImageU8[y * processingPitch + x*2 ];//Cb
+    yuvi[2] = srcImageU8[y * processingPitch + x*2 + 2];//Cr
+
+    yuvi[3] = srcImageU8[y * processingPitch + x*2 + 3];//Y1
+    yuvi[4] = srcImageU8[y * processingPitch + x*2];//Cb
+    yuvi[5] = srcImageU8[y * processingPitch + x*2 + 2];//Cr
+
+    // YUV to RGB Transformation conversion
+    YUV82RGB(&yuvi[0], &red[0], &green[0], &blue[0]);
+    YUV82RGB(&yuvi[3], &red[1], &green[1], &blue[1]);
+
+    dstImage[y * width + x]     = make_float4(red[0], green[0], blue[0], 1.0f);
+    dstImage[y * width + x + 1] = make_float4(red[1], green[1], blue[1], 1.0f);
+}
+
+// cudaNV12ToRGBA
+cudaError_t cudaYUVToRGBAf( uint8_t* srcDev, size_t srcPitch, float4* destDev, size_t destPitch, size_t width, size_t height )
+{
+	if( !srcDev || !destDev )
+		return cudaErrorInvalidDevicePointer;
+
+	if( srcPitch == 0 || destPitch == 0 || width == 0 || height == 0 )
+		return cudaErrorInvalidValue;
+
+	if( !nv12ColorspaceSetup )
+		cudaNV12SetupColorspace(0);
+
+	const dim3 blockDim(8,8,1);
+	//const dim3 gridDim((width+(2*blockDim.x-1))/(2*blockDim.x), (height+(blockDim.y-1))/blockDim.y, 1);
+	const dim3 gridDim(iDivUp(width,blockDim.x), iDivUp(height, blockDim.y), 1);
+
+	YUVToRGBAf<<<gridDim, blockDim>>>( (uint32_t*)srcDev, srcPitch, destDev, destPitch, width, height );
+
+	return CUDA(cudaGetLastError());
+}
+
+cudaError_t cudaYUVToRGBAf( uint8_t* srcDev, float4* destDev, size_t width, size_t height )
+{
+	return cudaYUVToRGBAf(srcDev, width * sizeof(uint8_t), destDev, width * sizeof(float4), width, height);
+}

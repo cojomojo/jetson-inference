@@ -33,6 +33,6 @@
  * @ingroup util
  */
 cudaError_t cudaRGBToRGBAf( uchar3* input, float4* output, size_t width, size_t height );
-
+cudaError_t cudaBAYER_GR8toRGBA( uint8_t* input, float4* output, size_t width, size_t height );
 
 #endif
