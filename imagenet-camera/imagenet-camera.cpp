@@ -73,12 +73,14 @@ int main( int argc, char** argv )
 	/*
 	 * create the camera device
 	 */
-	// camera* camera = gstCamera::Create(DEFAULT_CAMERA);
-	CameraNode cam1("22279978");
+	//camera* camera = gstCamera::Create(DEFAULT_CAMERA);
+	
+	CameraNode cam1("22334243" /*"22279978"*/);
 	std::vector<CameraNode*> cameras = { &cam1 };
-	pylonCamera pcam(cameras, 1280, 960);
+	pylonCamera pcam(cameras, 960, 1280);
+	pcam.StartGrabbing();
 	camera* camera = &pcam;
-
+	
 	if( !camera )
 	{
 		printf("\nimagenet-camera:  failed to initialize video device\n");

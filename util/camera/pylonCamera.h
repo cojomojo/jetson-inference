@@ -26,7 +26,6 @@ public:
 	// Capture RGB
 	bool Capture(void** cpu, void** cuda, unsigned long timeout);
 
-protected:
 	bool StartGrabbing();
 
 private:

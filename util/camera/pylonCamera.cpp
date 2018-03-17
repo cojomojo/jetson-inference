@@ -23,6 +23,9 @@ pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
         std::cout << LOG_PYLON << "Attached device " << (*mCameras)[i].GetDeviceInfo().GetSerialNumber()
             << " (" << cameras[i]->description << ")" << " as index " << i << std::endl;
     }
+ 
+    // TODO: unhardcode mDepth by calculating it in Capture()
+    mDepth = 3;
 }
 
 
@@ -59,13 +62,13 @@ bool pylonCamera::Open()
     }
     catch (GenICam::GenericException &e)
     {
-        std::cerr << "An exception occurred in CameraAPI::Initialize: " << std::endl
+        std::cerr << LOG_PYLON << "An exception occurred in Open(): " << std::endl
             << e.GetDescription() << e.GetSourceFileName() << std::endl;
         return false;
     }
     catch (std::exception &e)
     {
-        std::cerr << "An exception occurred in CameraAPI::Initialize: " << std::endl << e.what() << std::endl;
+        std::cerr << LOG_PYLON << "An exception occurred in Open(): " << std::endl << e.what() << std::endl;
         return false;
     }
 }
@@ -80,11 +83,11 @@ void pylonCamera::Close()
 	}
 	catch (Pylon::GenericException &e)
 	{
-		std::cerr << "An exception occurred in StopCamera(): " << std::endl << e.GetDescription() << std::endl;
+		std::cerr << LOG_PYLON << "An exception occurred in Close(): " << std::endl << e.GetDescription() << std::endl;
 	}
 	catch (std::exception &e)
 	{
-		std::cerr << "An exception occurred in StopCamera(): " << std::endl << e.what() << std::endl;
+		std::cerr << LOG_PYLON << "An exception occurred in Close(): " << std::endl << e.what() << std::endl;
 	}
 }
 
@@ -116,7 +119,7 @@ bool pylonCamera::StartGrabbing()
     // for more information.
 
     std::cout << LOG_PYLON << "Starting Pylon driver grab engine..." << std::endl;
-    cameras_->StartGrabbing(Pylon::EGrabStrategy::GrabStrategy_LatestImageOnly);
+    mCameras->StartGrabbing(Pylon::EGrabStrategy::GrabStrategy_LatestImageOnly);
     return true;
 }
 
@@ -132,14 +135,9 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_M
         Pylon::CImageFormatConverter formatConverter;
         if (!mCameras->IsGrabbing())
         {
-            std::cout << LOG_PYLON << "Cameras are not grabbing. Call StartCameras() first." << std::endl;
+            std::cout << LOG_PYLON << "Cameras are not grabbing. Call StartGrabbing() first." << std::endl;
             return false;
-        }
-        else
-        {
-            std::cout << LOG_PYLON << "Starting to grab frames with cameras." << std::endl;
-            mCameras->StartGrabbing();
-        }
+	}
 
         static int cam_index = 0;
 
@@ -175,13 +173,13 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_M
     }
     catch (Pylon::GenericException &e)
     {
-        std::cerr << "An exception occurred in RetrieveImage(): " << std::endl << e.GetDescription() << std::endl;
+        std::cerr << LOG_PYLON << "An exception occurred in RetrieveImage(): " << std::endl << e.GetDescription() << std::endl;
         mRetrieveMutex.unlock();
         return false;
     }
     catch (std::exception &e)
     {
-        std::cerr << "An exception occurred in RetrieveImage(): " << std::endl << e.what() << std::endl;
+        std::cerr << LOG_PYLON << "An exception occurred in RetrieveImage(): " << std::endl << e.what() << std::endl;
         mRetrieveMutex.unlock();
         return false;
     }
