@@ -74,11 +74,11 @@ int main( int argc, char** argv )
 	 * create the camera device
 	 */
 	//camera* camera = gstCamera::Create(DEFAULT_CAMERA);
-	
+
 	CameraNode cam1("22334243" /*"22279978"*/);
 	std::vector<CameraNode*> cameras = { &cam1 };
 	camera* camera = new pylonCamera(cameras, 960, 1280);
-	
+
 	if( !camera )
 	{
 		printf("\nimagenet-camera:  failed to initialize video device\n");
@@ -152,14 +152,14 @@ int main( int argc, char** argv )
 		// get the latest frame
 		if( !camera->Capture(&imgCPU, &imgCUDA, 1000) )
 			printf("\nimagenet-camera:  failed to capture frame\n");
-		//else
-		//	printf("imagenet-camera:  recieved new frame  CPU=0x%p  GPU=0x%p\n", imgCPU, imgCUDA);
+		else
+			printf("imagenet-camera:  received new frame  CPU=0x%p  GPU=0x%p\n", imgCPU, imgCUDA);
 
 		// convert from Bayer GR8 to RGBA
 		void* imgRGBA = NULL;
 
-		if( !camera->ConvertBAYER_GR8toRGBA(imgCUDA, &imgRGBA) )
-			printf("imagenet-camera:  failed to convert from Bayer GR8 to RGBA\n");
+		if( !camera->ConvertYUVtoRGBA(imgCUDA, &imgRGBA) )
+			printf("imagenet-camera:  failed to convert from YUV to RGBA\n");
 
 		// classify image
 		const int img_class = net->Classify((float*)imgRGBA, camera->GetWidth(), camera->GetHeight(), &confidence);

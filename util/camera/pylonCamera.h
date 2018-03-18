@@ -31,6 +31,9 @@ public:
 private:
     Pylon::CInstantCameraArray* mCameras;
 	Pylon::CPylonImage mNextImage;
+	Pylon::EPixelType mPixelType;
+	void* mBufferCPU;
+	void* mBufferGPU;
     std::mutex mRetrieveMutex;
 };
 

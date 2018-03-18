@@ -1,4 +1,5 @@
 
+#include "cudaMappedMemory.h"
 #include "pylonCamera.h"
 #include "pylonUtility.h"
 
@@ -23,9 +24,19 @@ pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
         std::cout << LOG_PYLON << "Attached device " << (*mCameras)[i].GetDeviceInfo().GetSerialNumber()
             << " (" << cameras[i]->description << ")" << " as index " << i << std::endl;
     }
- 
-    // TODO: unhardcode mDepth by calculating it in Capture()
-    mDepth = 1;
+
+    // TODO: unhardcode mPixelType
+    mPixelType = Pylon::EPixelType::PixelType_YUV422_YUYV_Packed;
+
+    // Initialize mNextImage as an empty image.
+    mNextImage.Reset(mPixelType, mWidth, mHeight);
+    mDepth = Pylon::BitDepth(mPixelType)/8;
+    mSize = mNextImage.GetImageSize();
+
+    if ( !cudaAllocMapped(&mBufferCPU, &mBufferGPU, mSize) )
+        printf(LOG_CUDA "pylonCamera -- failed to allocate buffer (size=%u)\n", mSize);
+    else
+        printf(LOG_CUDA "pylonCamera -- allocated buffer (size=%u)\n", mSize);
 }
 
 
@@ -48,19 +59,30 @@ bool pylonCamera::Open()
         // Configure cameras.
         for (auto i = 0; i < mCameras->GetSize(); ++i)
         {
-            if (GenApi::IsAvailable((*mCameras)[i].GetNodeMap().GetNode("AcquisitionFrameRateEnable")))
-                GenApi::CBooleanPtr((*mCameras)[i].GetNodeMap().GetNode("AcquisitionFrameRateEnable"))->SetValue(true);
-            if (GenApi::IsAvailable((*mCameras)[i].GetNodeMap().GetNode("AcquisitionFrameRate")))
+            GenApi::INodeMap& nodemap = (*mCameras)[i].GetNodeMap();
+            if (GenApi::IsAvailable(nodemap.GetNode("AcquisitionFrameRateEnable")))
+            {
+                GenApi::CBooleanPtr(nodemap.GetNode("AcquisitionFrameRateEnable"))
+                    ->SetValue(true);
+            }
+            if (GenApi::IsAvailable(nodemap.GetNode("AcquisitionFrameRate")))
+            {
                 // BCON and USB use SFNC3 names.
-                GenApi::CFloatPtr((*mCameras)[i].GetNodeMap().GetNode("AcquisitionFrameRate"))->SetValue(30); // TODO: Unhardcode framerate
+                GenApi::CFloatPtr(nodemap.GetNode("AcquisitionFrameRate"))
+                    ->SetValue(30); // TODO: Unhardcode framerate
+            }
+
+            GenApi::CEnumerationPtr pixelFormat(nodemap.GetNode("PixelFormat"));
+            if (GenApi::IsAvailable(pixelFormat->GetEntry(mPixelType)))
+            {
+                std::cout << LOG_PYLON << "Changing pixel format from " << pixelFormat->ToString()
+                    << " to " << "BayerGR8" << std::endl;
+                pixelFormat->SetIntValue(mPixelType);
+            }
         }
 
-        // Initialize mNextImage as an empty image.
-        mNextImage.Reset(Pylon::EPixelType::PixelType_BayerGR8, mWidth, mHeight);
-        //mDepth = mNextImage.GetImageSize()/(mWidth*mHeight);
-	
-	// Start the camera frame grabbing.
-	StartGrabbing();
+	    // Start the camera frame grabbing.
+	    StartGrabbing();
 
         return true;
     }
@@ -137,42 +159,41 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_M
         mRetrieveMutex.lock();
 
         Pylon::CImageFormatConverter formatConverter;
+        formatConverter.Initialize(mPixelType);
         if (!mCameras->IsGrabbing())
         {
             std::cout << LOG_PYLON << "Cameras are not grabbing. Call StartGrabbing() first." << std::endl;
             return false;
-	}
+	    }
 
         static int cam_index = 0;
 
-        Pylon::CGrabResultPtr grabResult;
-        (*mCameras)[cam_index].RetrieveResult(timeout, grabResult, Pylon::ETimeoutHandling::TimeoutHandling_ThrowException);
-        if (grabResult->GrabSucceeded())
+        Pylon::CGrabResultPtr grabResultPtr;
+        (*mCameras)[cam_index].RetrieveResult(timeout, grabResultPtr, Pylon::ETimeoutHandling::TimeoutHandling_ThrowException);
+        if (grabResultPtr->GrabSucceeded())
         {
-            if (!formatConverter.ImageHasDestinationFormat(grabResult))
-	    {
-		std::cout << LOG_PYLON << "image format didnt match, now convertng" << std::endl;
-                formatConverter.Convert(mNextImage, grabResult);
-	    }
-            else if (formatConverter.ImageHasDestinationFormat(grabResult))
-                mNextImage.CopyImage(grabResult);
-
-            intptr_t cameraContextValue = grabResult->GetCameraContext();
-            std::cout << LOG_PYLON << "Grabbed image from camera " << cameraContextValue << std::endl;
+            Pylon::EPixelType pxType = grabResultPtr->GetPixelType();
+            intptr_t cameraContextValue = grabResultPtr->GetCameraContext();
+            std::cout << LOG_PYLON << "Grabbed image from camera " << cameraContextValue
+                << " (pixelType = " << pxType << ")" << std::endl;
+            mNextImage.CopyImage(grabResultPtr);
         }
         else
         {
-            intptr_t cameraContextValue = grabResult->GetCameraContext();
+            intptr_t cameraContextValue = grabResultPtr->GetCameraContext();
             std::cout << LOG_PYLON << "Grab result failed for camera " << cameraContextValue << ": "
-                << grabResult->GetErrorDescription() << std::endl;
+                << grabResultPtr->GetErrorDescription() << std::endl;
         }
 
-        if( cpu != NULL )
-            *cpu = mNextImage.GetBuffer();
-	if( cuda != NULL )
-            *cuda = mNextImage.GetBuffer();
-        
-	// Increment camera index no matter what. This way if a camera fails, all cameras are not stalled.
+        mBufferCPU = mNextImage.GetBuffer();
+        mBufferGPU = mNextImage.GetBuffer();
+
+        if ( cpu != NULL )
+            *cpu = mBufferCPU;
+	    if ( cuda != NULL )
+            *cuda = mBufferGPU;
+
+	    // Increment camera index no matter what. This way if a camera fails, all cameras are not stalled.
         cam_index = ((cam_index+1) < mCameras->GetSize()) ? cam_index+1 : 0;
 
         mRetrieveMutex.unlock();
