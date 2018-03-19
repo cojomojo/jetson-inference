@@ -109,6 +109,7 @@ add_subdirectory(segnet-console)
 add_subdirectory(segnet-camera)
 
 add_subdirectory(util/camera/gst-camera)
+add_subdirectory(util/camera/pylon-camera)
 add_subdirectory(util/camera/v4l2-console)
 add_subdirectory(util/camera/v4l2-display)
 

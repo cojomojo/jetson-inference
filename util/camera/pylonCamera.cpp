@@ -27,10 +27,11 @@ pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
 
     // TODO: unhardcode mPixelType
     mPixelType = Pylon::EPixelType::PixelType_YUV422_YUYV_Packed;
+    // mPixelType = Pylon::EPixelType::PixelType_BayerGR8;
 
     // Initialize mNextImage as an empty image.
     mNextImage.Reset(mPixelType, mWidth, mHeight);
-    mDepth = Pylon::BitDepth(mPixelType)/8;
+    mDepth = 12;//Pylon::BitDepth(mPixelType)/8;
     mSize = mNextImage.GetImageSize();
 
     if ( !cudaAllocMapped(&mBufferCPU, &mBufferGPU, mSize) )
@@ -69,14 +70,14 @@ bool pylonCamera::Open()
             {
                 // BCON and USB use SFNC3 names.
                 GenApi::CFloatPtr(nodemap.GetNode("AcquisitionFrameRate"))
-                    ->SetValue(30); // TODO: Unhardcode framerate
+                    ->SetValue(10); // TODO: Unhardcode framerate
             }
 
             GenApi::CEnumerationPtr pixelFormat(nodemap.GetNode("PixelFormat"));
             if (GenApi::IsAvailable(pixelFormat->GetEntry(mPixelType)))
             {
                 std::cout << LOG_PYLON << "Changing pixel format from " << pixelFormat->ToString()
-                    << " to " << "BayerGR8" << std::endl;
+                    << " to " << mPixelType << std::endl;
                 pixelFormat->SetIntValue(mPixelType);
             }
         }
@@ -185,8 +186,8 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_M
                 << grabResultPtr->GetErrorDescription() << std::endl;
         }
 
-        mBufferCPU = mNextImage.GetBuffer();
-        mBufferGPU = mNextImage.GetBuffer();
+        memcpy(mBufferCPU, mNextImage.GetBuffer(), mSize);
+        // mBufferGPU = mNextImage.GetBuffer();
 
         if ( cpu != NULL )
             *cpu = mBufferCPU;

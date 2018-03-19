@@ -13,7 +13,7 @@ bool camera::ConvertBAYER_GR8toRGBA( void* input, void** output )
 	{
 		if( CUDA_FAILED(cudaMalloc(&mRGBA, mWidth * mHeight * sizeof(float4))) )
 		{
-			printf(LOG_CUDA "gvCamera -- failed to allocate memory for %ux%u RGBA texture\n", mWidth, mHeight);
+			printf(LOG_CUDA "camera -- failed to allocate memory for %ux%u RGBA texture\n", mWidth, mHeight);
 			return false;
 		}
 	}
@@ -21,7 +21,7 @@ bool camera::ConvertBAYER_GR8toRGBA( void* input, void** output )
 	// USB webcam is RGB
 	if( CUDA_FAILED(cudaBAYER_GR8toRGBA((uint8_t*)input, (float4*)mRGBA, mWidth, mHeight)) )
 	{
-		printf(LOG_CUDA "gvCamera -- conversion cudaRGBToRGBAf failed\n");
+		printf(LOG_CUDA "camera -- conversion cudaRGBToRGBAf failed\n");
 		return false;
 	}
 
@@ -65,7 +65,7 @@ bool camera::ConvertNV12toRGBA( void* input, void** output )
 	{
 		if( CUDA_FAILED(cudaMalloc(&mRGBA, mWidth * mHeight * sizeof(float4))) )
 		{
-			printf(LOG_CUDA "gstCamera -- failed to allocate memory for %ux%u RGBA texture\n", mWidth, mHeight);
+			printf(LOG_CUDA "camera -- failed to allocate memory for %ux%u RGBA texture\n", mWidth, mHeight);
 			return false;
 		}
 	}
@@ -87,7 +87,7 @@ bool camera::ConvertYUVtoRGBA( void* input, void** output )
 	{
 		if( CUDA_FAILED(cudaMalloc(&mRGBA, mWidth * mHeight * sizeof(float4))) )
 		{
-			printf(LOG_CUDA "gstCamera -- failed to allocate memory for %ux%u RGBA texture\n", mWidth, mHeight);
+			printf(LOG_CUDA "camera -- failed to allocate memory for %ux%u RGBA texture\n", mWidth, mHeight);
 			return false;
 		}
 	}

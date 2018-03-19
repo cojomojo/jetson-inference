@@ -150,16 +150,18 @@ int main( int argc, char** argv )
 		void* imgCUDA = NULL;
 
 		// get the latest frame
-		if( !camera->Capture(&imgCPU, &imgCUDA, 1000) )
+		if( !camera->Capture(&imgCPU, &imgCUDA, 5000) )
 			printf("\nimagenet-camera:  failed to capture frame\n");
 		else
 			printf("imagenet-camera:  received new frame  CPU=0x%p  GPU=0x%p\n", imgCPU, imgCUDA);
 
-		// convert from Bayer GR8 to RGBA
 		void* imgRGBA = NULL;
 
 		if( !camera->ConvertYUVtoRGBA(imgCUDA, &imgRGBA) )
 			printf("imagenet-camera:  failed to convert from YUV to RGBA\n");
+
+		// if( !camera->ConvertBAYER_GR8toRGBA(imgCUDA, &imgRGBA) )
+			// printf("imagenet-camera:  failed to convert from YUV to RGBA\n");
 
 		// classify image
 		const int img_class = net->Classify((float*)imgRGBA, camera->GetWidth(), camera->GetHeight(), &confidence);
@@ -185,7 +187,6 @@ int main( int argc, char** argv )
 				display->SetTitle(str);
 			}
 		}
-
 
 		// update display
 		if( display != NULL )

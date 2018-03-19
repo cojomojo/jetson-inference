@@ -25,6 +25,31 @@
         "windows": {
           "MIMode": "gdb"
         }
+      },
+      {
+        "name": "Remote launch gst-camera",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${workspaceRoot}/build/aarch64/bin/gst-camera",
+        "miDebuggerServerAddress": "localhost:9091",
+        "args": [],
+        "stopAtEntry": false,
+        "cwd": "${workspaceRoot}/build/aarch64/bin/",
+        "environment": [],
+        "externalConsole": true,
+        "sourceFileMap": {
+          "/home/nvidia/Src": "/home/cbalos/RemoteProjects"
+        },
+        "linux": {
+          "MIMode": "gdb",
+          "miDebuggerPath": "/usr/local/bin/aarch64-linux-gnu-gdb"
+        },
+        "osx": {
+          "MIMode": "gdb"
+        },
+        "windows": {
+          "MIMode": "gdb"
+        }
       }
     ]
   }
