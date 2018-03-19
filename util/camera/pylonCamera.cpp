@@ -6,7 +6,8 @@
 // constructor
 pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
                          int height,
-                         int width)
+                         int width,
+                         int framerate)
     : camera(height, width)
 {
     // Initialize Pylon runtime first.
@@ -24,6 +25,8 @@ pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
         std::cout << LOG_PYLON << "Attached device " << (*mCameras)[i].GetDeviceInfo().GetSerialNumber()
             << " (" << cameras[i]->description << ")" << " as index " << i << std::endl;
     }
+
+    mFramerate = framerate;
 
     // TODO: unhardcode mPixelType
     // mPixelType = Pylon::EPixelType::PixelType_YUV422_YUYV_Packed;

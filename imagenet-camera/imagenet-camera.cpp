@@ -38,7 +38,7 @@
 
 
 #define DEFAULT_CAMERA -1	// -1 for onboard camera, or change to index of /dev/video V4L2 camera (>=0)
-
+#define SLOW_DEMO_MODE 1
 
 
 bool signal_recieved = false;
@@ -75,9 +75,10 @@ int main( int argc, char** argv )
 	 */
 	//camera* camera = gstCamera::Create(DEFAULT_CAMERA);
 
-	CameraNode cam1("22334243" /*"22279978"*/);
-	std::vector<CameraNode*> cameras = { &cam1 };
-	camera* camera = new pylonCamera(cameras, 960, 1280);
+	CameraNode cam1("22334243");
+	CameraNode cam2("22279978");
+	std::vector<CameraNode*> cameras = { &cam1, &cam2 };
+	camera* camera = new pylonCamera(cameras, 960, 1280, 30);
 
 	if( !camera )
 	{
@@ -219,6 +220,9 @@ int main( int argc, char** argv )
 
 			display->EndRender();
 		}
+#if SLOW_DEMO_MODE
+		usleep(1000*3*2000);
+#endif
 	}
 
 	printf("\nimagenet-camera:  un-initializing video device\n");

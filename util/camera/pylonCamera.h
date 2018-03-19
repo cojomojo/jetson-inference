@@ -18,7 +18,8 @@ class pylonCamera : public camera
 public:
 	pylonCamera(std::vector<CameraNode*> cameras,
 				int height,
-				int width);
+				int width,
+				int framerate);
 	~pylonCamera();
 
 	bool Open();
@@ -30,8 +31,9 @@ public:
 
 private:
     Pylon::CInstantCameraArray* mCameras;
-	Pylon::CPylonImage mNextImage;
 	Pylon::EPixelType mPixelType;
+	int mFramerate;
+	Pylon::CPylonImage mNextImage;
 	void* mBufferCPU;
 	void* mBufferGPU;
     std::mutex mRetrieveMutex;

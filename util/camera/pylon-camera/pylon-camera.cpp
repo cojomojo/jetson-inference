@@ -34,6 +34,7 @@
 
 #include "cudaNormalize.h"
 
+#define SLOW_DEMO_MODE 0
 
 bool signal_recieved = false;
 
@@ -64,9 +65,10 @@ int main( int argc, char** argv )
 	 * create the camera device
 	 */
 	//gstCamera* camera = gstCamera::Create();
-	CameraNode cam1("22334243" /*"22279978"*/);
-	std::vector<CameraNode*> cameras = { &cam1 };
-	camera* camera = new pylonCamera(cameras, 960, 1280);
+	CameraNode cam1("22334243");
+	CameraNode cam2("22279978");
+	std::vector<CameraNode*> cameras = { &cam1, &cam2 };
+	camera* camera = new pylonCamera(cameras, 960, 1280, 30);
 
 	if( !camera )
 	{
@@ -168,7 +170,9 @@ int main( int argc, char** argv )
 
 			display->EndRender();
 		}
-		//usleep(1000*3*1000);
+#if SLOW_DEMO_MODE
+		usleep(1000*3*2000);
+#endif
 	}
 
 	printf("\npylon-camera:  un-initializing video device\n");
