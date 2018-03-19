@@ -133,8 +133,11 @@ int main( int argc, char** argv )
 		// convert from YUV to RGBA
 		void* imgRGBA = NULL;
 
-		if( !camera->ConvertYUVtoRGBA(imgCUDA, &imgRGBA) )
-			printf("pylon-camera:  failed to convert from YUV to RGBA\n");
+		// if( !camera->ConvertNV12toRGBA(imgCUDA, &imgRGBA) )
+		// 	printf("pylon-camera:  failed to convert from YUV to RGBA\n");
+
+		if( !camera->ConvertRGBtoRGBA(imgCUDA, &imgRGBA) )
+			printf("imagenet-camera:  failed to convert from RGB to RGBA\n");
 
 		// rescale image pixel intensities
 		CUDA(cudaNormalizeRGBA((float4*)imgRGBA, make_float2(0.0f, 255.0f),

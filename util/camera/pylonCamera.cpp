@@ -26,12 +26,12 @@ pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
     }
 
     // TODO: unhardcode mPixelType
-    mPixelType = Pylon::EPixelType::PixelType_YUV422_YUYV_Packed;
-    // mPixelType = Pylon::EPixelType::PixelType_BayerGR8;
+    // mPixelType = Pylon::EPixelType::PixelType_YUV422_YUYV_Packed;
+    mPixelType = Pylon::EPixelType::PixelType_RGB8packed;
 
     // Initialize mNextImage as an empty image.
     mNextImage.Reset(mPixelType, mWidth, mHeight);
-    mDepth = 12;//Pylon::BitDepth(mPixelType)/8;
+    mDepth = Pylon::BitDepth(mPixelType);
     mSize = mNextImage.GetImageSize();
 
     if ( !cudaAllocMapped(&mBufferCPU, &mBufferGPU, mSize) )
