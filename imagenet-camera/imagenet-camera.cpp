@@ -38,7 +38,7 @@
 
 
 #define DEFAULT_CAMERA -1	// -1 for onboard camera, or change to index of /dev/video V4L2 camera (>=0)
-#define SLOW_DEMO_MODE 1
+#define SLOW_DEMO_MODE 0
 
 
 bool signal_recieved = false;
@@ -78,7 +78,7 @@ int main( int argc, char** argv )
 	CameraNode cam1("22334243");
 	CameraNode cam2("22279978");
 	std::vector<CameraNode*> cameras = { &cam1, &cam2 };
-	camera* camera = new pylonCamera(cameras, 960, 1280, 30);
+	camera* camera = new pylonCamera(cameras, 480, 640, 54);
 
 	if( !camera )
 	{
