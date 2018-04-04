@@ -64,6 +64,16 @@ bool pylonCamera::Open()
         for (auto i = 0; i < mCameras->GetSize(); ++i)
         {
             GenApi::INodeMap& nodemap = (*mCameras)[i].GetNodeMap();
+            if (GenApi::IsAvailable(nodemap.GetNode("Width")))
+            {
+                GenApi::CIntegerPtr(nodemap.GetNode("Width"))
+                    ->SetValue(mWidth);
+            }
+            if (GenApi::IsAvailable(nodemap.GetNode("Height")))
+            {
+                GenApi::CIntegerPtr(nodemap.GetNode("Height"))
+                    ->SetValue(mHeight);
+            }
             if (GenApi::IsAvailable(nodemap.GetNode("AcquisitionFrameRateEnable")))
             {
                 GenApi::CBooleanPtr(nodemap.GetNode("AcquisitionFrameRateEnable"))

@@ -77,8 +77,8 @@ int main( int argc, char** argv )
 
 	CameraNode cam1("22334243");
 	CameraNode cam2("22279978");
-	std::vector<CameraNode*> cameras = { &cam1, &cam2 };
-	camera* camera = new pylonCamera(cameras, 480, 640, 54);
+	std::vector<CameraNode*> cameras = { &cam1 };
+	camera* camera = new pylonCamera(cameras, 256, 256, 30);
 
 	if( !camera )
 	{
@@ -221,7 +221,7 @@ int main( int argc, char** argv )
 			display->EndRender();
 		}
 #if SLOW_DEMO_MODE
-		usleep(1000*3*2000);
+		usleep(1000*3*1000);
 #endif
 	}
 
