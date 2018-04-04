@@ -1,4 +1,5 @@
 
+#include <thread>
 #include "cudaMappedMemory.h"
 #include "pylonCamera.h"
 #include "pylonUtility.h"
@@ -7,8 +8,9 @@
 pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
                          int height,
                          int width,
-                         int framerate)
-    : camera(height, width)
+                         int framerate,
+                         int buffer_size)
+    : camera(height, width), mFramerate(framerate)
 {
     // Initialize Pylon runtime first.
     Pylon::PylonInitialize();
@@ -26,8 +28,6 @@ pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
             << " (" << cameras[i]->description << ")" << " as index " << i << std::endl;
     }
 
-    mFramerate = framerate;
-
     // TODO: unhardcode mPixelType
     // mPixelType = Pylon::EPixelType::PixelType_YUV422_YUYV_Packed;
     mPixelType = Pylon::EPixelType::PixelType_RGB8packed;
@@ -37,10 +37,8 @@ pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
     mDepth = Pylon::BitDepth(mPixelType);
     mSize = mNextImage.GetImageSize();
 
-    if ( !cudaAllocMapped(&mBufferCPU, &mBufferGPU, mSize) )
-        printf(LOG_CUDA "pylonCamera -- failed to allocate buffer (size=%u)\n", mSize);
-    else
-        printf(LOG_CUDA "pylonCamera -- allocated buffer (size=%u)\n", mSize);
+    mBufferCPU = std::unique_ptr<RingBuffer<void*>>(new RingBuffer<void*>(buffer_size));
+    mBufferGPU = std::unique_ptr<CudaMappedRingBuffer<void*>>(new CudaMappedRingBuffer<void*>(buffer_size, mBufferCPU.get()));
 }
 
 
@@ -118,6 +116,7 @@ void pylonCamera::Close()
     try
 	{
 		std::cout << LOG_PYLON << "Stopping Camera image acquisition and Pylon image grabbing..." << std::endl;
+        mContinueRetrieving = false;
 		mCameras->StopGrabbing();
         mCameras->Close();
 	}
@@ -129,6 +128,22 @@ void pylonCamera::Close()
 	{
 		std::cerr << LOG_PYLON << "An exception occurred in Close(): " << std::endl << e.what() << std::endl;
 	}
+}
+
+bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout)
+{
+    if (!mIsRetrieving)
+        mIsRetrieving = StartRetrieveLoop(timeout);
+
+    if (mBufferCPU->IsEmpty())
+        return false;
+
+    if ( cpu != NULL )
+        *cpu = mBufferCPU->Get();
+    if ( cuda != NULL )
+        *cuda = mBufferGPU->Get();
+
+    return true;
 }
 
 bool pylonCamera::StartGrabbing()
@@ -163,14 +178,21 @@ bool pylonCamera::StartGrabbing()
     return true;
 }
 
+bool pylonCamera::StartRetrieveLoop(unsigned long timeout)
+{
+    std::thread retrieve_images (&pylonCamera::RetrieveLoop, this, timeout);
+    return true;
+}
 
-bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_MAX)
+bool pylonCamera::RetrieveImage(unsigned long timeout)
 {
     try
     {
         // Pylon grab functions are not thread safe, so need to lock RetrieveImage since it could be called
         // from NeedDataCB or grab thread created in StartCameraLoop.
         mRetrieveMutex.lock();
+
+        std::cout << LOG_PYLON << "RetrieveImage" << std::endl;
 
         Pylon::CImageFormatConverter formatConverter;
         formatConverter.Initialize(mPixelType);
@@ -190,7 +212,6 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_M
             intptr_t cameraContextValue = grabResultPtr->GetCameraContext();
             std::cout << LOG_PYLON << "Grabbed image from camera " << cameraContextValue
                 << " (pixelType = " << pxType << ")" << std::endl;
-            mNextImage.CopyImage(grabResultPtr);
         }
         else
         {
@@ -199,16 +220,10 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_M
                 << grabResultPtr->GetErrorDescription() << std::endl;
         }
 
-        memcpy(mBufferCPU, mNextImage.GetBuffer(), mSize);
-        // mBufferGPU = mNextImage.GetBuffer();
-
-        if ( cpu != NULL )
-            *cpu = mBufferCPU;
-	    if ( cuda != NULL )
-            *cuda = mBufferGPU;
+        mBufferCPU->Copy(grabResultPtr->GetBuffer(), mSize);
 
 	    // Increment camera index no matter what. This way if a camera fails, all cameras are not stalled.
-        cam_index = ((cam_index+1) < mCameras->GetSize()) ? cam_index+1 : 0;
+        cam_index = (cam_index+1) % mCameras->GetSize();
 
         mRetrieveMutex.unlock();
         return true;
@@ -224,5 +239,14 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_M
         std::cerr << LOG_PYLON << "An exception occurred in RetrieveImage(): " << std::endl << e.what() << std::endl;
         mRetrieveMutex.unlock();
         return false;
+    }
+}
+
+void pylonCamera::RetrieveLoop(unsigned long timeout)
+{
+    std::cout << LOG_PYLON << "Starting image retrieval loop" << std::endl;
+    while (mContinueRetrieving)
+    {
+        RetrieveImage(timeout);
     }
 }

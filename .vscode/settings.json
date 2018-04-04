@@ -36,6 +36,10 @@
         "type_traits": "cpp",
         "typeinfo": "cpp",
         "utility": "cpp",
-        "qmutex": "cpp"
+        "qmutex": "cpp",
+        "cstdarg": "cpp",
+        "atomic": "cpp",
+        "slist": "cpp",
+        "thread": "cpp"
     }
 }

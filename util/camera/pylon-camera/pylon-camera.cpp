@@ -67,8 +67,8 @@ int main( int argc, char** argv )
 	//gstCamera* camera = gstCamera::Create();
 	CameraNode cam1("22334243");
 	CameraNode cam2("22279978");
-	std::vector<CameraNode*> cameras = { &cam1, &cam2 };
-	camera* camera = new pylonCamera(cameras, 960, 1280, 30);
+	std::vector<CameraNode*> cameras = { &cam1 };
+	camera* camera = new pylonCamera(cameras, 256, 256, 30, 16);
 
 	if( !camera )
 	{

@@ -78,7 +78,7 @@ int main( int argc, char** argv )
 	CameraNode cam1("22334243");
 	CameraNode cam2("22279978");
 	std::vector<CameraNode*> cameras = { &cam1 };
-	camera* camera = new pylonCamera(cameras, 256, 256, 30);
+	camera* camera = new pylonCamera(cameras, 256, 256, 30, 16);
 
 	if( !camera )
 	{
