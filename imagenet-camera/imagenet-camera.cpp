@@ -78,7 +78,7 @@ int main( int argc, char** argv )
 	CameraNode cam1("22334243");
 	CameraNode cam2("22279978");
 	std::vector<CameraNode*> cameras = { &cam1 };
-	camera* camera = new pylonCamera(cameras, 256, 256, 30, 16);
+	camera* camera = new pylonCamera(cameras, 256, 256, 30, 32);
 
 	if( !camera )
 	{
@@ -151,7 +151,7 @@ int main( int argc, char** argv )
 		void* imgCUDA = NULL;
 
 		// get the latest frame
-		if( !camera->Capture(&imgCPU, &imgCUDA, 1000) )
+		if( !camera->Capture(&imgCPU, &imgCUDA, 100) )
 			printf("\nimagenet-camera:  failed to capture frame\n");
 		else
 			printf("imagenet-camera:  received new frame  CPU=0x%p  GPU=0x%p\n", imgCPU, imgCUDA);

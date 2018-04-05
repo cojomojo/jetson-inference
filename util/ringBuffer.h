@@ -4,6 +4,11 @@
 #include <cstddef>
 #include <memory>
 #include <mutex>
+#include <tuple>
+#include "cudaMappedMemory.h"
+
+//TODO: currently code is only allocating 16 bytes (1 byte per buffer entry). Need to allocate 16*the size of the image.
+// Probably need to take two params, size of buffer in bytes and stride (bytes per element).
 
 /**
  * Implementation of a ring (circular) buffer.
@@ -17,15 +22,19 @@ public:
      * The implementation utilizes an empty buffer position to distinguish full from empty, so the available position in
      * the buffer is actually the caller provided size-1.
      */
-    RingBuffer(size_t size) :
-        mSize(size), mBuffer(std::unique_ptr<T[]>(new T[size]))
+    RingBuffer(size_t size, size_t stride = 1)
+        : mSize(size), mStride(stride),
+          mCPUBuffer(std::unique_ptr<T[]>(new T[size])),
+          mGPUBuffer(std::unique_ptr<T[]>(new T[size]))
     {
+        for (uint32_t i = 0; i < Size(); i++)
+		{
+			if(!cudaAllocMapped(&mCPUBuffer[i], &mGPUBuffer[i], size*stride) )
+				printf(LOG_CUDA "failed to allocate ringbuffer %u (size=%lu)\n", i, size*stride);
+		}
     }
 
-    T Get();
-    /** Returns pointer to current tail.
-     */
-    T* Ptr();
+    std::tuple<T, T> Get();
     void Put(T item);
     /** memcpys the item into the next ringbuffer spot.
      */
@@ -36,48 +45,49 @@ public:
     size_t Size();
 
 protected:
-    std::unique_ptr<T[]> mBuffer;
+    std::unique_ptr<T[]> mCPUBuffer;
+    std::unique_ptr<T[]> mGPUBuffer;
 
 private:
     std::mutex mMutex;
     size_t mHead = 0;
     size_t mTail = 0;
     size_t mSize;
+    size_t mStride;
 };
 
 template<typename T>
-T RingBuffer<T>::Get()
+std::tuple<T, T> RingBuffer<T>::Get()
 {
     std::lock_guard<std::mutex> lock(mMutex);
 
     if (IsEmpty())
-    {
-        return T();
-    }
+        return std::make_tuple(T(), T());
 
-    T val = mBuffer[mTail];
+    T cpu = mCPUBuffer[mTail];
+    T gpu = mGPUBuffer[mTail];
     mTail = (mTail+1) % mSize;
 
-    return val;
+    return std::make_tuple(cpu, gpu);
 }
 
-template<typename T>
-T* RingBuffer<T>::Ptr()
-{
-    std::lock_guard<std::mutex> lock(mMutex);
+// template<typename T>
+// T* RingBuffer<T>::Ptr()
+// {
+//     std::lock_guard<std::mutex> lock(mMutex);
 
-    T* ptr = &mBuffer[mTail];
-    mTail = (mTail+1) % mSize;
+//     T* ptr = &mCPUBuffer[mTail];
+//     mTail = (mTail+1) % mSize;
 
-    return ptr;
-}
+//     return ptr;
+// }
 
 template<typename T>
 void RingBuffer<T>::Put(T item)
 {
     std::lock_guard<std::mutex> lock(mMutex);
 
-    mBuffer[mHead] = item;
+    mCPUBuffer[mHead] = item;
     mHead = (mHead+1) % mSize;
 
     // In the case that we have wrapped around, increment the tail.
@@ -91,7 +101,7 @@ void RingBuffer<T>::Copy(T item, size_t size)
 {
     std::lock_guard<std::mutex> lock(mMutex);
 
-    memcpy(mBuffer[mHead], item, size);
+    memcpy(mCPUBuffer[mHead], item, size);
     mHead = (mHead+1) % mSize;
 
     // In the case that we have wrapped around, increment the tail.
@@ -124,7 +134,7 @@ bool RingBuffer<T>::IsFull()
 template<typename T>
 size_t RingBuffer<T>::Size()
 {
-    return mSize-1;
+    return mSize;
 }
 
 #endif

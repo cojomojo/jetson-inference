@@ -6,6 +6,7 @@
 #include <mutex>
 #include <pylon/PylonIncludes.h>
 #include <string>
+#include <thread>
 #include "camera.h"
 #include "CameraNode.h"
 #include "cudaMappedRingBuffer.h"
@@ -41,13 +42,15 @@ private:
 	Pylon::EPixelType mPixelType;
 	int mFramerate;
 	Pylon::CPylonImage mNextImage;
-    std::mutex mRetrieveMutex;
+
+	std::thread retrieve_thread;
+	std::mutex mRetrieveMutex;
+	std::mutex mContinueMutex;
 
 	bool mContinueRetrieving = true;
 	bool mIsRetrieving = false;
 
-	std::unique_ptr<RingBuffer<void*>> mBufferCPU;
-	std::unique_ptr<CudaMappedRingBuffer<void*>> mBufferGPU;
+	std::unique_ptr<RingBuffer<void*>> mCudaMappedBuffer;
 };
 
 #endif
