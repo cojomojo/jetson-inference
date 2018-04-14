@@ -9,8 +9,8 @@
 #include <thread>
 #include "camera.h"
 #include "CameraNode.h"
-#include "cudaMappedRingBuffer.h"
-#include "ringBuffer.h"
+#include "CudaMappedRingBuffer.h"
+#include "RingBuffer.h"
 
 
 /**
@@ -29,7 +29,7 @@ public:
 	bool Open();
 	void Close();
 	// Capture RGB
-	bool Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_MAX);
+	uint32_t Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_MAX);
 
 protected:
 	bool StartGrabbing();
@@ -50,7 +50,8 @@ private:
 	bool mContinueRetrieving = true;
 	bool mIsRetrieving = false;
 
-	std::unique_ptr<RingBuffer<void*>> mCudaMappedBuffer;
+	std::unique_ptr<RingBuffer<uint32_t>> mCamIndexBuffer;
+	std::unique_ptr<CudaMappedRingBuffer<void*>> mCudaMappedBuffer;
 };
 
 #endif

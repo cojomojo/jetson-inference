@@ -173,14 +173,14 @@ GstFlowReturn gstCamera::onBuffer(_GstAppSink* sink, void* user_data)
 
 
 // Capture
-bool gstCamera::Capture( void** cpu, void** cuda, unsigned long timeout )
+uint32_t gstCamera::Capture( void** cpu, void** cuda, unsigned long timeout )
 {
 	mWaitMutex->lock();
     const bool wait_result = mWaitEvent->wait(mWaitMutex, timeout);
     mWaitMutex->unlock();
 
 	if( !wait_result )
-		return false;
+		return -1;
 
 	mRingMutex->lock();
 	const uint32_t latest = mLatestRingbuffer;
@@ -190,7 +190,7 @@ bool gstCamera::Capture( void** cpu, void** cuda, unsigned long timeout )
 
 	// skip if it was already retrieved
 	if( retrieved )
-		return false;
+		return -1;
 
 	if( cpu != NULL )
 		*cpu = mRingbufferCPU[latest];
@@ -198,7 +198,7 @@ bool gstCamera::Capture( void** cpu, void** cuda, unsigned long timeout )
 	if( cuda != NULL )
 		*cuda = mRingbufferGPU[latest];
 
-	return true;
+	return latest;
 }
 
 

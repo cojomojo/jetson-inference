@@ -77,7 +77,7 @@ int main( int argc, char** argv )
 
 	CameraNode cam1("22334243");
 	CameraNode cam2("22279978");
-	std::vector<CameraNode*> cameras = { &cam1 };
+	std::vector<CameraNode*> cameras = { &cam1, &cam2 };
 	camera* camera = new pylonCamera(cameras, 256, 256, 30, 32);
 
 	if( !camera )
@@ -151,21 +151,16 @@ int main( int argc, char** argv )
 		void* imgCUDA = NULL;
 
 		// get the latest frame
-		if( !camera->Capture(&imgCPU, &imgCUDA, 100) )
+		uint32_t camIndex = camera->Capture(&imgCPU, &imgCUDA, 100);
+		if (camIndex < 0)
 			printf("\nimagenet-camera:  failed to capture frame\n");
 		else
-			printf("imagenet-camera:  received new frame  CPU=0x%p  GPU=0x%p\n", imgCPU, imgCUDA);
+			printf("imagenet-camera:  received new frame CAMIDX=%d  CPU=0x%p  GPU=0x%p\n", camIndex, imgCPU, imgCUDA);
 
 		void* imgRGBA = NULL;
 
-		// if( !camera->ConvertNV12toRGBA(imgCUDA, &imgRGBA) )
-		// 	printf("imagenet-camera:  failed to convert from YUV to RGBA\n");
-
 		if( !camera->ConvertRGBtoRGBA(imgCUDA, &imgRGBA) )
 			printf("imagenet-camera:  failed to convert from RGB to RGBA\n");
-
-		// if( !camera->ConvertBAYER_GR8toRGBA(imgCUDA, &imgRGBA) )
-		// 	printf("imagenet-camera:  failed to convert from BayerGR8 to RGBA\n");
 
 		// classify image
 		const int img_class = net->Classify((float*)imgRGBA, camera->GetWidth(), camera->GetHeight(), &confidence);

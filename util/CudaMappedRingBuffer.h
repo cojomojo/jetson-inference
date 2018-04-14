@@ -1,5 +1,5 @@
-#ifndef __RING_BUFFER_H__
-#define __RING_BUFFER_H__
+#ifndef __CUDA_MAPPED_RING_BUFFER_H__
+#define __CUDA_MAPPED_RING_BUFFER_H__
 
 #include <cstddef>
 #include <memory>
@@ -7,22 +7,19 @@
 #include <tuple>
 #include "cudaMappedMemory.h"
 
-//TODO: currently code is only allocating 16 bytes (1 byte per buffer entry). Need to allocate 16*the size of the image.
-// Probably need to take two params, size of buffer in bytes and stride (bytes per element).
-
 /**
- * Implementation of a ring (circular) buffer.
+ * Implementation of a ring (circular) buffer with CUDA zero-copy mapped memory.
  */
 template <class T>
-class RingBuffer
+class CudaMappedRingBuffer
 {
 
 public:
-    /**Creates a new RingBuffer of the size provided.
+    /**Creates a new CudaMappedRingBuffer of the size provided.
      * The implementation utilizes an empty buffer position to distinguish full from empty, so the available position in
      * the buffer is actually the caller provided size-1.
      */
-    RingBuffer(size_t size, size_t stride = 1)
+    CudaMappedRingBuffer(size_t size, size_t stride = 1)
         : mSize(size), mStride(stride),
           mCPUBuffer(std::unique_ptr<T[]>(new T[size])),
           mGPUBuffer(std::unique_ptr<T[]>(new T[size]))
@@ -30,13 +27,13 @@ public:
         for (uint32_t i = 0; i < Size(); i++)
 		{
 			if(!cudaAllocMapped(&mCPUBuffer[i], &mGPUBuffer[i], size*stride) )
-				printf(LOG_CUDA "failed to allocate ringbuffer %u (size=%lu)\n", i, size*stride);
+				printf(LOG_CUDA "failed to allocate CudaMappedRingBuffer %u (size=%lu)\n", i, size*stride);
 		}
     }
 
     std::tuple<T, T> Get();
     void Put(T item);
-    /** memcpys the item into the next ringbuffer spot.
+    /** memcpys the item into the next CudaMappedRingBuffer spot.
      */
     void Copy(T item, size_t size);
     void Reset();
@@ -56,8 +53,9 @@ private:
     size_t mStride;
 };
 
+
 template<typename T>
-std::tuple<T, T> RingBuffer<T>::Get()
+std::tuple<T, T> CudaMappedRingBuffer<T>::Get()
 {
     std::lock_guard<std::mutex> lock(mMutex);
 
@@ -71,19 +69,9 @@ std::tuple<T, T> RingBuffer<T>::Get()
     return std::make_tuple(cpu, gpu);
 }
 
-// template<typename T>
-// T* RingBuffer<T>::Ptr()
-// {
-//     std::lock_guard<std::mutex> lock(mMutex);
-
-//     T* ptr = &mCPUBuffer[mTail];
-//     mTail = (mTail+1) % mSize;
-
-//     return ptr;
-// }
 
 template<typename T>
-void RingBuffer<T>::Put(T item)
+void CudaMappedRingBuffer<T>::Put(T item)
 {
     std::lock_guard<std::mutex> lock(mMutex);
 
@@ -97,7 +85,7 @@ void RingBuffer<T>::Put(T item)
 }
 
 template<typename T>
-void RingBuffer<T>::Copy(T item, size_t size)
+void CudaMappedRingBuffer<T>::Copy(T item, size_t size)
 {
     std::lock_guard<std::mutex> lock(mMutex);
 
@@ -112,27 +100,27 @@ void RingBuffer<T>::Copy(T item, size_t size)
 
 
 template<typename T>
-void RingBuffer<T>::Reset()
+void CudaMappedRingBuffer<T>::Reset()
 {
     std::lock_guard<std::mutex> lock(mMutex);
     mHead = mTail;
 }
 
 template<typename T>
-bool RingBuffer<T>::IsEmpty()
+bool CudaMappedRingBuffer<T>::IsEmpty()
 {
     return mHead == mTail;
 }
 
 
 template<typename T>
-bool RingBuffer<T>::IsFull()
+bool CudaMappedRingBuffer<T>::IsFull()
 {
     return ((mHead+1) % mSize) == mTail;
 }
 
 template<typename T>
-size_t RingBuffer<T>::Size()
+size_t CudaMappedRingBuffer<T>::Size()
 {
     return mSize;
 }

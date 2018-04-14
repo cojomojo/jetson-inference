@@ -35,7 +35,8 @@ pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
     mDepth = Pylon::BitDepth(mPixelType);
     mSize = mNextImage.GetImageSize();
 
-    mCudaMappedBuffer = std::unique_ptr<RingBuffer<void*>>(new RingBuffer<void*>(buffer_size, mSize));
+    mCamIndexBuffer = std::unique_ptr<RingBuffer<uint32_t>>(new RingBuffer<uint32_t>(buffer_size));
+    mCudaMappedBuffer = std::unique_ptr<CudaMappedRingBuffer<void*>>(new CudaMappedRingBuffer<void*>(buffer_size, mSize));
 }
 
 
@@ -110,6 +111,7 @@ bool pylonCamera::Open()
     }
 }
 
+
 void pylonCamera::Close()
 {
     try
@@ -131,13 +133,13 @@ void pylonCamera::Close()
 	}
 }
 
-bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout)
+
+uint32_t pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout)
 {
     if (!mIsRetrieving)
         mIsRetrieving = StartRetrieveLoop(timeout);
 
     while (mCudaMappedBuffer->IsEmpty());
-        // return false;
 
     std::tuple<void*, void*> entry = mCudaMappedBuffer->Get();
     if (cpu != NULL)
@@ -145,7 +147,7 @@ bool pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout)
     if (cuda != NULL)
         *cuda = std::get<1>(entry);
 
-    return true;
+    return mCamIndexBuffer->Get();
 }
 
 bool pylonCamera::StartGrabbing()
@@ -220,6 +222,7 @@ bool pylonCamera::RetrieveImage(unsigned long timeout)
                 << grabResultPtr->GetErrorDescription() << std::endl;
         }
 
+        mCamIndexBuffer->Put(cam_index);
         mCudaMappedBuffer->Copy(grabResultPtr->GetBuffer(), mSize);
 
 	    // Increment camera index no matter what. This way if a camera fails, all cameras are not stalled.
