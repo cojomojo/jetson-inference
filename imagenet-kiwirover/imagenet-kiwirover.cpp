@@ -24,6 +24,11 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+
 #include "camera.h"
 #include "CameraNode.h"
 #include "commandLine.h"
@@ -36,16 +41,29 @@
 #include "cudaFont.h"
 #include "imageNet.h"
 
+#define DEBUG
 #define SLOW_DEMO_MODE 0
 
+#ifdef DEBUG
+#  define LOG_ERROR(x) do { std::cerr << "[error][imagenet-kiwirover]  " << x; } while (0)
+#  define LOG_WARN(x) do { std::cout << "[warning][imagenet-kiwirover]  " << x; } while (0)
+#  define LOG_MSG(x) do { std::cout << "[message][imagenet-kiwirover]  " << x; } while (0)
+#else
+#  define LOG_ERROR(x) do {} while (0)
+#  define LOG_WARN(x) do {} while (0)
+#  define LOG_MSG(x) do {} while (0)
+#endif
+
 bool signal_received = false;
+void sig_handler(int signo);
+
 glDisplay* display = NULL;
 glTexture* texture = NULL;
 cudaFont* font = NULL;
-
-void sig_handler(int signo);
 void create_opengl_display(uint32_t width, uint32_t height);
 void update_opengl_display(uint32_t width, uint32_t height, void* imgRGBA);
+
+int create_udp_socket();
 
 int main( int argc, char** argv )
 {
@@ -60,6 +78,7 @@ int main( int argc, char** argv )
 	bool xVerbose = cli.GetFlag("vv");
 	bool xxVerbose = cli.GetFlag("vvv");
 	bool shouldDisplay = cli.GetFlag("display");
+	bool noUDPTrigger = cli.GetFlag("no-udp-trigger");
 
 	// attach signal handler
 	if( signal(SIGINT, sig_handler) == SIG_ERR )
@@ -94,6 +113,11 @@ int main( int argc, char** argv )
 	{
 		create_opengl_display(camera->GetWidth(), camera->GetHeight());
 		font = cudaFont::Create();
+	}
+
+	if( !noUDPTrigger )
+	{
+		create_udp_socket();
 	}
 
 	// Start camera streaming.
@@ -256,4 +280,55 @@ void update_opengl_display(uint32_t width, uint32_t height, void* imgRGBA)
 
 		display->EndRender();
 	}
+}
+
+
+int create_udp_socket()
+{
+	int soc;
+
+	if( (soc = socket(AF_INET, SOCK_DGRAM, 0)) < 0 )
+	{
+		LOG_ERROR("Cannot create UDP socket.\n");
+		return -1;
+	}
+
+	LOG_MSG("Created UDP socket.\n");
+
+	struct sockaddr_in  servaddr;
+	memset((char*) &servaddr, 0, sizeof(servaddr));
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	servaddr.sin_port = htons(5005);
+
+	if( bind(soc, (struct sockaddr*) &servaddr, sizeof(servaddr)) < 0 )
+	{
+		LOG_ERROR("Failed to bind socket.\n");
+		return -1;
+	}
+
+	LOG_MSG("Bound UDP socket succesfully.\n");
+
+	struct hostent* hp;
+	char* my_message = "this is a test message";
+	char* host = "cbalos-desktop.local";
+
+	hp = gethostbyname(host);
+	if( !hp )
+	{
+		LOG_ERROR("Could not obtain address of " << host << std::endl);
+		return -1;
+	}
+
+	memcpy((void*) &servaddr.sin_addr, hp->h_addr_list[0], hp->h_length);
+
+	if ( sendto(soc, my_message, strlen(my_message), 0, (struct sockaddr*) &servaddr, sizeof(servaddr)) < 0 )
+	{
+		LOG_ERROR("Failed to send packet.\n");
+		return -1;
+	}
+
+	LOG_MSG("Successfully sent packet to " << host << std::endl);
+
+	return 0;
 }
