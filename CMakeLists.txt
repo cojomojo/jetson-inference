@@ -99,8 +99,9 @@ file(COPY "tools/segnet-batch.sh" DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 
 # build samples & utilities
-add_subdirectory(imagenet-console)
+# add_subdirectory(imagenet-console)
 add_subdirectory(imagenet-camera)
+add_subdirectory(imagenet-kiwirover)
 
 #add_subdirectory(detectnet-console)
 #add_subdirectory(detectnet-camera)
