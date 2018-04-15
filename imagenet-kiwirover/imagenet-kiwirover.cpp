@@ -139,6 +139,7 @@ int main( int argc, char** argv )
 	/*
 	 * processing loop
 	 */
+	uint32_t trigger_count = 0;
 	float confidence = 0.0f;
 
 	while( !signal_received )
@@ -165,7 +166,11 @@ int main( int argc, char** argv )
 		{
 			printf("imagenet-kiwirover:  %2.5f%% class #%i (%s)\n", confidence * 100.0f, img_class, net->GetClassDesc(img_class));
 
-			send_trigger_over_udp(socket, &servaddr, camIndex);
+			if( !noUDPTrigger )
+			{
+				if ( send_trigger_over_udp(socket, &servaddr, camIndex) )
+					trigger_count++;
+			}
 
 			if( shouldDisplay && (font != NULL) )
 			{
@@ -191,6 +196,7 @@ int main( int argc, char** argv )
 #endif
 	}
 
+	LOG_MSG("Sent " << trigger_count << " triggers" << std::endl);
 	printf("\nimagenet-kiwirover:  un-initializing video device\n");
 
 	// Shutdown the camera device.
