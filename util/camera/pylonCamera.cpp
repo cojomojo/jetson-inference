@@ -3,7 +3,7 @@
 #include "pylonUtility.h"
 
 // constructor
-pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
+pylonCamera::pylonCamera(std::vector<std::string> camera_serials,
                          int height,
                          int width,
                          int framerate,
@@ -14,16 +14,16 @@ pylonCamera::pylonCamera(std::vector<CameraNode*> cameras,
     Pylon::PylonInitialize();
 
     // Create the CInstantCameraArray.
-    mCameras = new Pylon::CInstantCameraArray(cameras.size());
+    mCameras = new Pylon::CInstantCameraArray(camera_serials.size());
 
     // First attach all the devices according to their serial numbers and defined index.
     for (auto i = 0; i < mCameras->GetSize(); ++i)
     {
         Pylon::CDeviceInfo deviceInfo;
-        deviceInfo.SetSerialNumber(cameras[i]->serialNumber.c_str());
+        deviceInfo.SetSerialNumber(camera_serials[i].c_str());
         (*mCameras)[i].Attach(Pylon::CTlFactory::GetInstance().CreateFirstDevice(deviceInfo));
         std::cout << LOG_PYLON << "Attached device " << (*mCameras)[i].GetDeviceInfo().GetSerialNumber()
-            << " (" << cameras[i]->description << ")" << " as index " << i << std::endl;
+            << " as index " << i << std::endl;
     }
 
     // TODO: un-hardcode mPixelType

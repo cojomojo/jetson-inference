@@ -67,7 +67,7 @@ include_directories(/usr/include/gstreamer-1.0 /usr/lib/aarch64-linux-gnu/gstrea
 link_directories(${PYLON_LIB})
 
 file(GLOB inferenceSources *.cpp *.cu util/*.cpp util/camera/*.cpp util/cuda/*.cu util/display/*.cpp)
-file(GLOB inferenceIncludes *.h util/*.h util/camera/*.h util/cuda/*.h util/display/*.h)
+file(GLOB inferenceIncludes *.h util/*.h util/camera/*.h util/cuda/*.h util/display/*.h 3rd_party/*.hpp)
 
 cuda_add_library(jetson-inference SHARED ${inferenceSources})
 target_link_libraries(jetson-inference nvcaffe_parser nvinfer Qt4::QtGui GL GLEW gstreamer-1.0 gstapp-1.0 ${PYLON_LIBS})		# gstreamer-0.10 gstbase-0.10 gstapp-0.10

@@ -8,7 +8,6 @@
 #include <string>
 #include <thread>
 #include "camera.h"
-#include "CameraNode.h"
 #include "CudaMappedRingBuffer.h"
 #include "RingBuffer.h"
 
@@ -19,7 +18,7 @@
 class pylonCamera : public camera
 {
 public:
-	pylonCamera(std::vector<CameraNode*> cameras,
+	pylonCamera(std::vector<std::string> camera_serials,
 				int height,
 				int width,
 				int framerate,

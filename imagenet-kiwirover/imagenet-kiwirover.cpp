@@ -20,6 +20,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#define DEBUG
+
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
@@ -41,18 +43,10 @@
 #include "cudaFont.h"
 #include "imageNet.h"
 
-#define DEBUG
-#define SLOW_DEMO_MODE 0
+#include "log.h"
+#include "XmlConfiguration.h"
 
-#ifdef DEBUG
-#  define LOG_ERROR(x) do { std::cerr << "[error][imagenet-kiwirover]  " << x; } while (0)
-#  define LOG_WARN(x) do { std::cout << "[warning][imagenet-kiwirover]  " << x; } while (0)
-#  define LOG_MSG(x) do { std::cout << "[message][imagenet-kiwirover]  " << x; } while (0)
-#else
-#  define LOG_ERROR(x) do {} while (0)
-#  define LOG_WARN(x) do {} while (0)
-#  define LOG_MSG(x) do {} while (0)
-#endif
+#define SLOW_DEMO_MODE 0
 
 bool signal_received = false;
 void sig_handler(int signo);
@@ -73,26 +67,31 @@ int main( int argc, char** argv )
 		printf("%i [%s]  ", i, argv[i]);
 	printf("\n\n");
 
-	// parse CLI arguments specific to kiwirover
-	commandLine cli(argc, argv);
-	bool verbose = cli.GetFlag("v");
-	bool xVerbose = cli.GetFlag("vv");
-	bool xxVerbose = cli.GetFlag("vvv");
-	bool shouldDisplay = cli.GetFlag("display");
-	bool noUDPTrigger = cli.GetFlag("no-udp-trigger");
-
 	// attach signal handler
 	if( signal(SIGINT, sig_handler) == SIG_ERR )
 		printf("\ncan't catch SIGINT\n");
 
-	// create the camera device
-	CameraNode cam1("22334243"); CameraNode cam2("22279978");
-	CameraNode cam3("22627232");
-	std::vector<CameraNode*> cameras = { &cam1, &cam2, &cam3 };
-	camera* camera = new pylonCamera(cameras, 256, 256, 50, 32);
+	// parse CLI arguments specific to kiwirover
+	commandLine cli(argc, argv);
+	// bool verbose = cli.GetFlag("v");
+	// bool xVerbose = cli.GetFlag("vv");
+	// bool xxVerbose = cli.GetFlag("vvv");
+	bool shouldDisplay = cli.GetFlag("display");
+	bool noUDPTrigger = cli.GetFlag("no-udp-trigger");
+	auto configFilename = cli.GetString("config-path") == NULL ? "config.xml" : cli.GetString("config-path");
 
-	if( !camera )
-	{
+	// Parse configuration file.
+	XmlConfiguration xmlConfig(configFilename);
+	auto cam_serials = xmlConfig.GetStrings("cameras", "camera");
+	auto im_width = xmlConfig.GetInt("cameras", "image_width");
+	auto im_height = xmlConfig.GetInt("cameras", "image_height");
+	auto fps = xmlConfig.GetInt("cameras", "fps");
+	auto im_buffer_size = xmlConfig.GetInt("imagebuffer");
+
+	// create the camera device
+	camera* camera = new pylonCamera(cam_serials, im_width, im_height, fps, im_buffer_size);
+
+	if (!camera) {
 		printf("\nimagenet-kiwirover:  failed to initialize video device\n");
 		return 0;
 	}
@@ -196,7 +195,7 @@ int main( int argc, char** argv )
 #endif
 	}
 
-	LOG_MSG("Sent " << trigger_count << " triggers" << std::endl);
+	LOG_MSG(LOG_APP_LEVEL, "Sent " << trigger_count << " triggers" << std::endl);
 	printf("\nimagenet-kiwirover:  un-initializing video device\n");
 
 	// Shutdown the camera device.
@@ -307,11 +306,11 @@ int create_udp_socket(struct sockaddr_in* servaddr)
 
 	if( (soc = socket(AF_INET, SOCK_DGRAM, 0)) < 0 )
 	{
-		LOG_ERROR("Cannot create UDP socket.\n");
+		LOG_ERROR(LOG_APP_LEVEL, "Cannot create UDP socket.\n");
 		return -1;
 	}
 
-	LOG_MSG("Created UDP socket.\n");
+	LOG_MSG(LOG_APP_LEVEL, "Created UDP socket.\n");
 
 	memset((char*) servaddr, 0, sizeof(*servaddr));
 	servaddr->sin_family = AF_INET;
@@ -324,11 +323,11 @@ int create_udp_socket(struct sockaddr_in* servaddr)
 	hp = gethostbyname(host);
 	if( !hp )
 	{
-		LOG_ERROR("Could not obtain address of " << host << std::endl);
+		LOG_ERROR(LOG_APP_LEVEL, "Could not obtain address of " << host << std::endl);
 		return -1;
 	}
 
-	LOG_MSG("Established USP connection to " << host << std::endl);
+	LOG_MSG(LOG_APP_LEVEL, "Established USP connection to " << host << std::endl);
 
 	memcpy((void*) &servaddr->sin_addr, hp->h_addr_list[0], hp->h_length);
 
@@ -341,9 +340,9 @@ bool send_trigger_over_udp(int socket, struct sockaddr_in* servaddr, uint32_t ca
 	std::string msg = std::to_string(cam_index);
 	if ( sendto(socket, msg.c_str(), msg.length(), 0,  (struct sockaddr*) servaddr, sizeof(*servaddr)) < 0 )
 	{
-		LOG_ERROR("Failed to send trigger packet.\n");
+		LOG_ERROR(LOG_APP_LEVEL, "Failed to send trigger packet.\n");
 		return false;
 	}
-	LOG_MSG("Sent trigger packet.\n");
+	LOG_MSG(LOG_APP_LEVEL, "Sent trigger packet.\n");
 	return true;
 }

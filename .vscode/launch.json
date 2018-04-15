@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
       {
-        "name": "Remote launch imagenet-camera",
+        "name": "Remote launch imagenet-kiwirover",
         "type": "cppdbg",
         "request": "launch",
-        "program": "${workspaceRoot}/build/aarch64/bin/imagenet-camera",
+        "program": "${workspaceRoot}/build/aarch64/bin/imagenet-kiwirover",
         "miDebuggerServerAddress": "localhost:9091",
         "args": [],
         "stopAtEntry": false,
@@ -27,10 +27,10 @@
         }
       },
       {
-        "name": "Remote launch gst-camera",
+        "name": "Remote launch pylon-camera",
         "type": "cppdbg",
         "request": "launch",
-        "program": "${workspaceRoot}/build/aarch64/bin/gst-camera",
+        "program": "${workspaceRoot}/build/aarch64/bin/pylon-camera",
         "miDebuggerServerAddress": "localhost:9091",
         "args": [],
         "stopAtEntry": false,

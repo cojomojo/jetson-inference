@@ -21,7 +21,6 @@
  */
 
 #include "camera.h"
-#include "CameraNode.h"
 #include "gstCamera.h"
 #include "pylonCamera.h"
 
@@ -74,10 +73,7 @@ int main( int argc, char** argv )
 	 * create the camera device
 	 */
 	//camera* camera = gstCamera::Create(DEFAULT_CAMERA);
-
-	CameraNode cam1("22334243");
-	CameraNode cam2("22279978");
-	std::vector<CameraNode*> cameras = { &cam1, &cam2 };
+	std::vector<std::string> cameras = { "22334243", "22279978" };
 	camera* camera = new pylonCamera(cameras, 256, 256, 30, 32);
 
 	if( !camera )
