@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <signal.h>
+#include <string>
 #include <unistd.h>
 
 #include <netdb.h>
@@ -57,8 +58,8 @@ cudaFont* font = NULL;
 void create_opengl_display(uint32_t width, uint32_t height);
 void update_opengl_display(uint32_t width, uint32_t height, void* imgRGBA);
 
-int create_udp_socket(struct sockaddr_in* servaddr);
-bool send_trigger_over_udp(int socket, struct sockaddr_in* servaddr, uint32_t cam_index);
+int create_udp_socket(std::string host_name, struct sockaddr_in* servaddr);
+bool send_trigger_over_udp(int socket, struct sockaddr_in* servaddr, uint8_t cam_index);
 
 int main( int argc, char** argv )
 {
@@ -71,7 +72,9 @@ int main( int argc, char** argv )
 	if( signal(SIGINT, sig_handler) == SIG_ERR )
 		printf("\ncan't catch SIGINT\n");
 
+	//
 	// parse CLI arguments specific to kiwirover
+	//
 	commandLine cli(argc, argv);
 	// bool verbose = cli.GetFlag("v");
 	// bool xVerbose = cli.GetFlag("vv");
@@ -80,15 +83,20 @@ int main( int argc, char** argv )
 	bool noUDPTrigger = cli.GetFlag("no-udp-trigger");
 	auto configFilename = cli.GetString("config-path") == NULL ? "config.xml" : cli.GetString("config-path");
 
+	//
 	// Parse configuration file.
+	//
 	XmlConfiguration xmlConfig(configFilename);
 	auto cam_serials = xmlConfig.GetStrings("cameras", "camera");
 	auto im_width = xmlConfig.GetInt("cameras", "image_width");
 	auto im_height = xmlConfig.GetInt("cameras", "image_height");
 	auto fps = xmlConfig.GetInt("cameras", "fps");
 	auto im_buffer_size = xmlConfig.GetInt("imagebuffer");
+	auto host_name = xmlConfig.GetString("triggertarget");
 
-	// create the camera device
+	//
+	// Create the camera device
+	//
 	camera* camera = new pylonCamera(cam_serials, im_width, im_height, fps, im_buffer_size);
 
 	if (!camera) {
@@ -119,7 +127,7 @@ int main( int argc, char** argv )
 	struct sockaddr_in servaddr;
 	if( !noUDPTrigger )
 	{
-		socket = create_udp_socket(&servaddr);
+		socket = create_udp_socket(host_name, &servaddr);
 		if( socket < 0 )
 		{
 			return 0;
@@ -147,7 +155,7 @@ int main( int argc, char** argv )
 		void* imgCUDA = NULL;
 
 		// get the latest frame
-		uint32_t camIndex = camera->Capture(&imgCPU, &imgCUDA, 100);
+		uint8_t camIndex = camera->Capture(&imgCPU, &imgCUDA, 100);
 		if (camIndex < 0)
 			printf("\nimagenet-kiwirover:  failed to capture frame\n");
 		else
@@ -300,7 +308,7 @@ void update_opengl_display(uint32_t width, uint32_t height, void* imgRGBA)
 }
 
 
-int create_udp_socket(struct sockaddr_in* servaddr)
+int create_udp_socket(std::string host_name, struct sockaddr_in* servaddr)
 {
 	int soc;
 
@@ -318,16 +326,28 @@ int create_udp_socket(struct sockaddr_in* servaddr)
 	servaddr->sin_port = htons(5005);
 
 	struct hostent* hp;
-	const char* host = "cbalos-desktop.local";
+	struct in_addr addr;
 
-	hp = gethostbyname(host);
-	if( !hp )
-	{
-		LOG_ERROR(LOG_APP_LEVEL, "Could not obtain address of " << host << std::endl);
+	if (isalpha(host_name.c_str()[0])) {
+        printf("Calling gethostbyname with %s\n", host_name.c_str());
+        hp = gethostbyname(host_name.c_str());
+    } else {
+        printf("Calling gethostbyaddr with %s\n", host_name.c_str());
+        addr.s_addr = inet_addr(host_name.c_str());
+        if (addr.s_addr == INADDR_NONE) {
+            printf("The IPv4 address entered must be a legal address\n");
+            return -1;
+        } else {
+            hp = gethostbyaddr((char *) &addr, 4, AF_INET);
+		}
+    }
+
+	if (!hp) {
+		LOG_ERROR(LOG_APP_LEVEL, "Could not obtain address of " << host_name << std::endl);
 		return -1;
 	}
 
-	LOG_MSG(LOG_APP_LEVEL, "Established USP connection to " << host << std::endl);
+	LOG_MSG(LOG_APP_LEVEL, "Established USP connection to " << host_name << std::endl);
 
 	memcpy((void*) &servaddr->sin_addr, hp->h_addr_list[0], hp->h_length);
 
@@ -335,11 +355,9 @@ int create_udp_socket(struct sockaddr_in* servaddr)
 }
 
 
-bool send_trigger_over_udp(int socket, struct sockaddr_in* servaddr, uint32_t cam_index)
+bool send_trigger_over_udp(int socket, struct sockaddr_in* servaddr, uint8_t cam_index)
 {
-	std::string msg = std::to_string(cam_index);
-	if ( sendto(socket, msg.c_str(), msg.length(), 0,  (struct sockaddr*) servaddr, sizeof(*servaddr)) < 0 )
-	{
+	if (sendto(socket, &cam_index, 1, 0, (struct sockaddr*) servaddr, sizeof(*servaddr)) < 0) {
 		LOG_ERROR(LOG_APP_LEVEL, "Failed to send trigger packet.\n");
 		return false;
 	}
