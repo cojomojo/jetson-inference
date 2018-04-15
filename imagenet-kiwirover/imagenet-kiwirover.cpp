@@ -63,7 +63,8 @@ cudaFont* font = NULL;
 void create_opengl_display(uint32_t width, uint32_t height);
 void update_opengl_display(uint32_t width, uint32_t height, void* imgRGBA);
 
-int create_udp_socket();
+int create_udp_socket(struct sockaddr_in* servaddr);
+bool send_trigger_over_udp(int socket, struct sockaddr_in* servaddr, uint32_t cam_index);
 
 int main( int argc, char** argv )
 {
@@ -115,9 +116,15 @@ int main( int argc, char** argv )
 		font = cudaFont::Create();
 	}
 
+	int socket;
+	struct sockaddr_in servaddr;
 	if( !noUDPTrigger )
 	{
-		create_udp_socket();
+		socket = create_udp_socket(&servaddr);
+		if( socket < 0 )
+		{
+			return 0;
+		}
 	}
 
 	// Start camera streaming.
@@ -157,6 +164,8 @@ int main( int argc, char** argv )
 		if( img_class >= 0 )
 		{
 			printf("imagenet-kiwirover:  %2.5f%% class #%i (%s)\n", confidence * 100.0f, img_class, net->GetClassDesc(img_class));
+
+			send_trigger_over_udp(socket, &servaddr, camIndex);
 
 			if( shouldDisplay && (font != NULL) )
 			{
@@ -216,6 +225,7 @@ int main( int argc, char** argv )
 	return 0;
 }
 
+
 void sig_handler(int signo)
 {
 	if( signo == SIGINT )
@@ -224,6 +234,7 @@ void sig_handler(int signo)
 		signal_received = true;
 	}
 }
+
 
 /**
  * Create OpenGL display.
@@ -243,6 +254,7 @@ void create_opengl_display(uint32_t width, uint32_t height)
 			printf("imagenet-kiwirover:  failed to create openGL texture\n");
 	}
 }
+
 
 /**
  *	Updates the OpenGL display with the new frame.
@@ -283,7 +295,7 @@ void update_opengl_display(uint32_t width, uint32_t height, void* imgRGBA)
 }
 
 
-int create_udp_socket()
+int create_udp_socket(struct sockaddr_in* servaddr)
 {
 	int soc;
 
@@ -295,23 +307,13 @@ int create_udp_socket()
 
 	LOG_MSG("Created UDP socket.\n");
 
-	struct sockaddr_in  servaddr;
-	memset((char*) &servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servaddr.sin_port = htons(5005);
-
-	if( bind(soc, (struct sockaddr*) &servaddr, sizeof(servaddr)) < 0 )
-	{
-		LOG_ERROR("Failed to bind socket.\n");
-		return -1;
-	}
-
-	LOG_MSG("Bound UDP socket succesfully.\n");
+	memset((char*) servaddr, 0, sizeof(*servaddr));
+	servaddr->sin_family = AF_INET;
+	servaddr->sin_addr.s_addr = htonl(INADDR_ANY);
+	servaddr->sin_port = htons(5005);
 
 	struct hostent* hp;
-	char* my_message = "this is a test message";
-	char* host = "cbalos-desktop.local";
+	const char* host = "cbalos-desktop.local";
 
 	hp = gethostbyname(host);
 	if( !hp )
@@ -320,15 +322,22 @@ int create_udp_socket()
 		return -1;
 	}
 
-	memcpy((void*) &servaddr.sin_addr, hp->h_addr_list[0], hp->h_length);
+	LOG_MSG("Established USP connection to " << host << std::endl);
 
-	if ( sendto(soc, my_message, strlen(my_message), 0, (struct sockaddr*) &servaddr, sizeof(servaddr)) < 0 )
+	memcpy((void*) &servaddr->sin_addr, hp->h_addr_list[0], hp->h_length);
+
+	return soc;
+}
+
+
+bool send_trigger_over_udp(int socket, struct sockaddr_in* servaddr, uint32_t cam_index)
+{
+	std::string msg = std::to_string(cam_index);
+	if ( sendto(socket, msg.c_str(), msg.length(), 0,  (struct sockaddr*) servaddr, sizeof(*servaddr)) < 0 )
 	{
-		LOG_ERROR("Failed to send packet.\n");
-		return -1;
+		LOG_ERROR("Failed to send trigger packet.\n");
+		return false;
 	}
-
-	LOG_MSG("Successfully sent packet to " << host << std::endl);
-
-	return 0;
+	LOG_MSG("Sent trigger packet.\n");
+	return true;
 }
