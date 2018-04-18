@@ -47,7 +47,7 @@
 #include "log.h"
 #include "XmlConfiguration.h"
 
-#define SLOW_DEMO_MODE 0
+#define SLOW_DEMO_MODE 1
 
 bool signal_received = false;
 void sig_handler(int signo);
@@ -199,11 +199,11 @@ int main( int argc, char** argv )
 			update_opengl_display(camera->GetWidth(), camera->GetHeight(), imgRGBA);
 
 #if SLOW_DEMO_MODE
-		usleep(1000*3*1000);
+		usleep(1000*3*250);
 #endif
 	}
 
-	LOG_MSG(LOG_APP_LEVEL, "Sent " << trigger_count << " triggers" << std::endl);
+	LOG_MSG(LOG_APP_LEVEL, "Sent " << trigger_count << " triggers." << std::endl);
 	printf("\nimagenet-kiwirover:  un-initializing video device\n");
 
 	// Shutdown the camera device.
@@ -325,31 +325,29 @@ int create_udp_socket(std::string host_name, struct sockaddr_in* servaddr)
 	servaddr->sin_addr.s_addr = htonl(INADDR_ANY);
 	servaddr->sin_port = htons(5005);
 
-	struct hostent* hp;
 	struct in_addr addr;
 
 	if (isalpha(host_name.c_str()[0])) {
-        printf("Calling gethostbyname with %s\n", host_name.c_str());
-        hp = gethostbyname(host_name.c_str());
-    } else {
-        printf("Calling gethostbyaddr with %s\n", host_name.c_str());
-        addr.s_addr = inet_addr(host_name.c_str());
-        if (addr.s_addr == INADDR_NONE) {
-            printf("The IPv4 address entered must be a legal address\n");
-            return -1;
-        } else {
-            hp = gethostbyaddr((char *) &addr, 4, AF_INET);
-		}
-    }
+            printf("Calling gethostbyname with %s\n", host_name.c_str());
+            struct hostent* hp = gethostbyname(host_name.c_str());
+            LOG_MSG(LOG_APP_LEVEL, "Established UDP connection to " << host_name << std::endl);
+	    memcpy((void*) &servaddr->sin_addr, hp->h_addr_list[0], hp->h_length);
+	} else {
+            printf("Calling gethostbyaddr with %s\n", host_name.c_str());
+            struct in_addr addr;
+	    addr.s_addr = inet_addr(host_name.c_str());
+            if (addr.s_addr == INADDR_NONE) {
+                printf("The IPv4 address entered must be a legal address\n");
+                return -1;
+            }
+            LOG_MSG(LOG_APP_LEVEL, "Established UDP connection to " << host_name << std::endl);
+	    memcpy((void*) &servaddr->sin_addr, &addr, sizeof(addr));
+        }
 
-	if (!hp) {
-		LOG_ERROR(LOG_APP_LEVEL, "Could not obtain address of " << host_name << std::endl);
-		return -1;
-	}
-
-	LOG_MSG(LOG_APP_LEVEL, "Established USP connection to " << host_name << std::endl);
-
-	memcpy((void*) &servaddr->sin_addr, hp->h_addr_list[0], hp->h_length);
+	//if (!hp) {
+	//	LOG_ERROR(LOG_APP_LEVEL, "Could not obtain address of " << host_name << std::endl);
+	//	return -1;
+	//}
 
 	return soc;
 }
