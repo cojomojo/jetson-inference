@@ -10,6 +10,7 @@ class XmlConfiguration
 public:
     XmlConfiguration(std::string filename);
 
+    bool GetBool(std::string nodeName, std::string attributeName = "");
     int GetInt(std::string nodeName, std::string attributeName = "");
     std::string GetString(std::string nodeName, std::string attributeName = "");
     std::vector<std::string> GetStrings(std::string parentNodeName,

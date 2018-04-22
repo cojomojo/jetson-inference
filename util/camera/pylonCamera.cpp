@@ -8,7 +8,7 @@ pylonCamera::pylonCamera(std::vector<std::string> camera_serials,
                          int width,
                          int framerate,
                          int buffer_size)
-    : camera(height, width), mFramerate(framerate)
+    : camera(height, width), mFramerate(framerate), mImageSavePath(""), mCaptureCount(0)
 {
     // Initialize Pylon runtime first.
     Pylon::PylonInitialize();
@@ -147,8 +147,11 @@ uint32_t pylonCamera::Capture(void** cpu, void** cuda, unsigned long timeout)
     if (cuda != NULL)
         *cuda = std::get<1>(entry);
 
+    mCaptureCount++;
+
     return mCamIndexBuffer->Get();
 }
+
 
 bool pylonCamera::StartGrabbing()
 {

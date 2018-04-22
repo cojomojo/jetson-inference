@@ -30,6 +30,9 @@ public:
 	// Capture RGB
 	uint32_t Capture(void** cpu, void** cuda, unsigned long timeout=ULONG_MAX);
 
+	Pylon::EPixelType GetPixelType() { return mPixelType; }
+	uint32_t GetCaptureCount() { return mCaptureCount; }
+
 protected:
 	bool StartGrabbing();
 	bool StartRetrieveLoop(unsigned long timeout);
@@ -39,8 +42,9 @@ protected:
 private:
     Pylon::CInstantCameraArray* mCameras;
 	Pylon::EPixelType mPixelType;
-	int mFramerate;
 	Pylon::CPylonImage mNextImage;
+	int mFramerate;
+	std::string mImageSavePath;
 
 	std::thread retrieve_thread;
 	std::mutex mRetrieveMutex;
@@ -51,6 +55,7 @@ private:
 
 	std::unique_ptr<RingBuffer<uint32_t>> mCamIndexBuffer;
 	std::unique_ptr<CudaMappedRingBuffer<void*>> mCudaMappedBuffer;
+	uint32_t mCaptureCount;
 };
 
 #endif

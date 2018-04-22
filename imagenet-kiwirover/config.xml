@@ -1,8 +1,9 @@
 <cameras image_width="256" image_height="256" fps="50">
     <!-- 1st camera is 0th index. Should ensure cameras on rover match index (left=0 to right=7). -->
-    <camera>22334243</camera>
-    <!--<camera>22627232</camera>-->
+    <!--<camera>22334243</camera>-->
+    <!-- <camera>22627232</camera> -->
     <camera>22279978</camera>
 </cameras>
 <imagebuffer>32</imagebuffer>
 <triggertarget>192.168.0.2</triggertarget>
+<savecaptured path="/home/nvidia/kiwirover_imageout/">true</savecaptured>

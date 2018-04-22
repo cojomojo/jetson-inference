@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <string>
+#include <thread>
 #include <unistd.h>
 
 #include <netdb.h>
@@ -88,16 +89,18 @@ int main( int argc, char** argv )
 	//
 	XmlConfiguration xmlConfig(configFilename);
 	auto cam_serials = xmlConfig.GetStrings("cameras", "camera");
-	auto im_width = xmlConfig.GetInt("cameras", "image_width");
-	auto im_height = xmlConfig.GetInt("cameras", "image_height");
+	auto imWidth = xmlConfig.GetInt("cameras", "image_width");
+	auto imHeight = xmlConfig.GetInt("cameras", "image_height");
 	auto fps = xmlConfig.GetInt("cameras", "fps");
-	auto im_buffer_size = xmlConfig.GetInt("imagebuffer");
+	auto imBufferSize = xmlConfig.GetInt("imagebuffer");
 	auto host_name = xmlConfig.GetString("triggertarget");
+	auto saveCaptured = xmlConfig.GetBool("savecaptured");
+	auto capturedImageSavePath = xmlConfig.GetString("savecaptured", "path");
 
 	//
 	// Create the camera device
 	//
-	camera* camera = new pylonCamera(cam_serials, im_width, im_height, fps, im_buffer_size);
+	pylonCamera* camera = new pylonCamera(cam_serials, imWidth, imHeight, fps, imBufferSize);
 
 	if (!camera) {
 		printf("\nimagenet-kiwirover:  failed to initialize video device\n");
@@ -163,43 +166,59 @@ int main( int argc, char** argv )
 
 		void* imgRGBA = NULL;
 
-		if( !camera->ConvertRGBtoRGBA(imgCUDA, &imgRGBA) )
+		if (!camera->ConvertRGBtoRGBA(imgCUDA, &imgRGBA))
 			printf("imagenet-kiwirover:  failed to convert from RGB to RGBA\n");
 
 		// classify image
 		const int img_class = net->Classify((float*)imgRGBA, camera->GetWidth(), camera->GetHeight(), &confidence);
 
-		if( img_class >= 0 )
-		{
-			printf("imagenet-kiwirover:  %2.5f%% class #%i (%s)\n", confidence * 100.0f, img_class, net->GetClassDesc(img_class));
+		if(img_class >= 0) {
+			const char* classDesc = net->GetClassDesc(img_class);
+			printf("imagenet-kiwirover:  %2.5f%% class #%i (%s)\n", confidence * 100.0f, img_class, classDesc);
 
-			if( !noUDPTrigger )
-			{
-				if ( send_trigger_over_udp(socket, &servaddr, camIndex) )
+			if (!noUDPTrigger) {
+				if (send_trigger_over_udp(socket, &servaddr, camIndex))
 					trigger_count++;
 			}
 
-			if( shouldDisplay && (font != NULL) )
-			{
+			if (saveCaptured) {
+				uint32_t captureCount = camera->GetCaptureCount();
+				std::thread t([&]() {
+					std::string filename = capturedImageSavePath + classDesc + "_" + std::to_string(captureCount) + ".png";
+					Pylon::CImagePersistence::Save(Pylon::EImageFileFormat::ImageFileFormat_Png,
+						filename.c_str(),
+						imgCPU,
+						camera->GetSize(),
+						camera->GetPixelType(),
+						camera->GetWidth(),
+						camera->GetHeight(),
+						0,   // no padding
+						Pylon::EImageOrientation::ImageOrientation_TopDown
+					);
+					LOG_MSG(LOG_APP_LEVEL, "saved image " << captureCount << " to " << filename << std::endl);
+				});
+				t.detach();
+			}
+
+			if (shouldDisplay && (font != NULL)) {
 				char str[256];
-				sprintf(str, "%05.2f%% %s", confidence * 100.0f, net->GetClassDesc(img_class));
+				sprintf(str, "%05.2f%% %s", confidence * 100.0f, classDesc);
 				font->RenderOverlay((float4*)imgRGBA, (float4*)imgRGBA, camera->GetWidth(), camera->GetHeight(),
 									str, 0, 0, make_float4(255.0f, 255.0f, 255.0f, 255.0f));
 			}
 
-			if( shouldDisplay && (display != NULL) )
-			{
+			if (shouldDisplay && (display != NULL)) {
 				char str[256];
 				sprintf(str, "TensorRT build %x | %s | %s | %04.1f FPS", NV_GIE_VERSION, net->GetNetworkName(), net->HasFP16() ? "FP16" : "FP32", display->GetFPS());
 				display->SetTitle(str);
 			}
 		}
 
-		if( shouldDisplay )
+		if (shouldDisplay)
 			update_opengl_display(camera->GetWidth(), camera->GetHeight(), imgRGBA);
 
 #if SLOW_DEMO_MODE
-		usleep(1000*3*250);
+		usleep(1000*3*1000);
 #endif
 	}
 

@@ -2,6 +2,9 @@
  *  XmlConfiguration.cpp
  */
 
+#include <iostream>
+#include <sstream>
+
 #include "log.h"
 #include "XmlConfiguration.h"
 
@@ -16,6 +19,16 @@ XmlConfiguration::XmlConfiguration(std::string filename)
 
     mDoc.parse<0>(mXmlFile.data());
 }
+
+
+bool XmlConfiguration::GetBool(std::string nodeName, std::string attributeName)
+{
+    bool ret;
+    auto str = GetString(nodeName, attributeName);
+    std::istringstream(str) >> std::boolalpha >> ret;
+    return ret;
+}
+
 
 int XmlConfiguration::GetInt(std::string nodeName, std::string attributeName)
 {
