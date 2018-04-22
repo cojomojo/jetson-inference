@@ -5,5 +5,5 @@
     <camera>22279978</camera>
 </cameras>
 <imagebuffer>32</imagebuffer>
-<triggertarget>192.168.0.2</triggertarget>
+<triggertarget port="5005">192.168.0.2</triggertarget>
 <savecaptured path="/home/nvidia/kiwirover_imageout/">true</savecaptured>
