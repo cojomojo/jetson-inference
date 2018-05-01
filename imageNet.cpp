@@ -335,12 +335,14 @@ int imageNet::Classify( float* rgba, uint32_t width, uint32_t height, float* con
 	return classIndex;
 }
 
-std::vector<ClassifyResults> ClassifyList( float* rgba, uint32_t width, uint32_t height );
+std::vector<ClassifyResults> imageNet::ClassifyList( float* rgba, uint32_t width, uint32_t height )
 {
+	std::vector<ClassifyResults> results;
+
 	if( !rgba || width == 0 || height == 0 )
 	{
 		printf("imageNet::Classify( 0x%p, %u, %u ) -> invalid parameters\n", rgba, width, height);
-		return -1;
+		return results;
 	}
 
 
@@ -349,7 +351,7 @@ std::vector<ClassifyResults> ClassifyList( float* rgba, uint32_t width, uint32_t
 								 make_float3(104.0069879317889f, 116.66876761696767f, 122.6789143406786f))) )
 	{
 		printf("imageNet::Classify() -- cudaPreImageNetMean failed\n");
-		return -1;
+		return results;
 	}
 
 
@@ -361,12 +363,6 @@ std::vector<ClassifyResults> ClassifyList( float* rgba, uint32_t width, uint32_t
 	//CUDA(cudaDeviceSynchronize());
 	PROFILER_REPORT();
 
-
-	// determine the maximum class
-	int classIndex = -1;
-	float classMax = -1.0f;
-
-	std::vector<ClassifyResults> results;
 	for( size_t n=0; n < mOutputClasses; n++ )
 	{
 		const float value = mOutputs[0].CPU[n];
@@ -377,10 +373,13 @@ std::vector<ClassifyResults> ClassifyList( float* rgba, uint32_t width, uint32_t
 		ClassifyResults result;
 		result.classIndex = n;
 		result.confidence = value;
-		results.push_back(result)
+		results.push_back(result);
 	}
 
-	std::sort(results.rbegin(), results.rend())
+	std::sort(results.begin(), results.end(),
+		[](const ClassifyResults& lhs, const ClassifyResults& rhs) {
+			return lhs.confidence > rhs.confidence;
+		});
 
 	//printf("\nmaximum class:  #%i  (%f) (%s)\n", classIndex, classMax, mClassDesc[classIndex].c_str());
 	return results;

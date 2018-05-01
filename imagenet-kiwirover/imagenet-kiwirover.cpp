@@ -169,13 +169,17 @@ int main(int argc, char** argv)
 
 		const int FIRE = 0;
 		const int DONT_FIRE = 1;
-		if (img_classes.length() >= 0) {
-			// check if top class is no fire, if confidence is less than 65% then use fire
+		if (img_classes.size() >= 0) {
+			// check if top class is no fire, if confidence is less than 75% then use fire
 			int img_class;
-			if (img_classes[0].classIndex == DONT_FIRE && img_classes[0].confidence <= 0.65)
+			if (img_classes[0].classIndex == DONT_FIRE && img_classes[0].confidence <= 0.75) {
 				img_class = FIRE; // fire
-			else
+				confidence = img_classes[1].confidence;
+			}
+			else {
 				img_class = img_classes[0].classIndex;
+				confidence = img_classes[0].confidence;
+			}
 
 			const char* classDesc = net->GetClassDesc(img_class);
 			printf("imagenet-kiwirover:  %2.5f%% class #%i (%s)\n", confidence * 100.0f, img_class, classDesc);
