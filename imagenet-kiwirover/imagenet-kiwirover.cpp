@@ -164,13 +164,23 @@ int main(int argc, char** argv)
 			printf("imagenet-kiwirover:  failed to convert from RGB to RGBA\n");
 
 		// classify image
-		const int img_class = net->Classify((float*)imgRGBA, camera->GetWidth(), camera->GetHeight(), &confidence);
+		// const int img_class = net->Classify((float*)imgRGBA, camera->GetWidth(), camera->GetHeight(), &confidence);
+		std::vector<ClassifyResults> img_classes = net->ClassifyList((float*)imgRGBA, camera->GetWidth(), camera->GetHeight());
 
-		if (img_class >= 0) {
+		const int FIRE = 0;
+		const int DONT_FIRE = 1;
+		if (img_classes.length() >= 0) {
+			// check if top class is no fire, if confidence is less than 65% then use fire
+			int img_class;
+			if (img_classes[0].classIndex == DONT_FIRE && img_classes[0].confidence <= 0.65)
+				img_class = FIRE; // fire
+			else
+				img_class = img_classes[0].classIndex;
+
 			const char* classDesc = net->GetClassDesc(img_class);
 			printf("imagenet-kiwirover:  %2.5f%% class #%i (%s)\n", confidence * 100.0f, img_class, classDesc);
 
-			if (!noUDPTrigger) {
+			if (!noUDPTrigger && img_class == FIRE) {
 				if (send_trigger_over_udp(socket, &servaddr, camIndex))
 					trigger_count++;
 			}
