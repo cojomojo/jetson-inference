@@ -52,7 +52,7 @@ public:
 	void Close();
 
 	// Capture YUV (NV12)
-	bool Capture( void** cpu, void** cuda, unsigned long timeout=ULONG_MAX );
+	uint32_t Capture( void** cpu, void** cuda, unsigned long timeout=ULONG_MAX );
 
 	// Takes in captured YUV-NV12 CUDA image, converts to float4 RGBA (with pixel intensity 0-255)
 	// Set zeroCopy to true if you need to access ConvertRGBA from CPU, otherwise it will be CUDA only.

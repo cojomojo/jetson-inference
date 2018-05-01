@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 project(jetson-inference)
 
 # setup tensorRT flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")	# -std=gnu++11
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g")	# -std=gnu++11
 set(BUILD_DEPS "YES" CACHE BOOL "If YES, will install dependencies into sandbox.  Automatically reset to NO after dependencies are installed.")
 
 
@@ -67,7 +67,7 @@ include_directories(/usr/include/gstreamer-1.0 /usr/lib/aarch64-linux-gnu/gstrea
 link_directories(${PYLON_LIB})
 
 file(GLOB inferenceSources *.cpp *.cu util/*.cpp util/camera/*.cpp util/cuda/*.cu util/display/*.cpp)
-file(GLOB inferenceIncludes *.h util/*.h util/camera/*.h util/cuda/*.h util/display/*.h)
+file(GLOB inferenceIncludes *.h util/*.h util/camera/*.h util/cuda/*.h util/display/*.h 3rd_party/*.hpp)
 
 cuda_add_library(jetson-inference SHARED ${inferenceSources})
 target_link_libraries(jetson-inference nvcaffe_parser nvinfer Qt4::QtGui GL GLEW gstreamer-1.0 gstapp-1.0 ${PYLON_LIBS})		# gstreamer-0.10 gstbase-0.10 gstapp-0.10
@@ -99,18 +99,20 @@ file(COPY "tools/segnet-batch.sh" DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 
 # build samples & utilities
-add_subdirectory(imagenet-console)
+# add_subdirectory(imagenet-console)
 add_subdirectory(imagenet-camera)
+add_subdirectory(imagenet-kiwirover)
 
-add_subdirectory(detectnet-console)
-add_subdirectory(detectnet-camera)
+#add_subdirectory(detectnet-console)
+#add_subdirectory(detectnet-camera)
 
-add_subdirectory(segnet-console)
-add_subdirectory(segnet-camera)
+#add_subdirectory(segnet-console)
+#add_subdirectory(segnet-camera)
 
 add_subdirectory(util/camera/gst-camera)
-add_subdirectory(util/camera/v4l2-console)
-add_subdirectory(util/camera/v4l2-display)
+add_subdirectory(util/camera/pylon-camera)
+#add_subdirectory(util/camera/v4l2-console)
+#add_subdirectory(util/camera/v4l2-display)
 
 add_subdirectory(docs)
 

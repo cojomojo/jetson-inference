@@ -19,7 +19,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
- 
+
 #ifndef __COMMAND_LINE_H_
 #define __COMMAND_LINE_H_
 
@@ -38,8 +38,8 @@ public:
 
 
 	/**
-	 * Checks to see whether the specified flag was included on the 
-	 * command line.   For example, if argv contained "--foo", then 
+	 * Checks to see whether the specified flag was included on the
+	 * command line. For example, if argv contained "--foo", then
 	 * GetFlag("foo") would return true.
 	 *
 	 * @returns true, if the flag with argName was found
@@ -47,23 +47,23 @@ public:
 	 */
 	bool GetFlag( const char* argName );
 
-	
+
 	/**
-	 * Get float argument.  For example if argv contained "--foo=3.14159", 
+	 * Get float argument. For example if argv contained "--foo=3.14159",
 	 * then GetInt("foo") would return 3.14159.0f
 	 *
-	 * @returns 0, if the argumentcould not be found.
+	 * @returns 0, if the argument could not be found.
 	 *          Otherwise, returns the value of the argument.
 	 */
 	float GetFloat( const char* argName );
 
 
 	/**
-	 * Get integer argument.  For example if argv contained "--foo=100", 
+	 * Get integer argument.  For example if argv contained "--foo=100",
 	 * then GetInt("foo") would return 100.
 	 *
 	 * @returns 0, if the argument could not be found.
-	 *          Otherwise, returns the value of the argument. 
+	 *          Otherwise, returns the value of the argument.
 	 */
 	int GetInt( const char* argName );
 

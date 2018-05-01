@@ -19,7 +19,8 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
- 
+
+#include <algorithm>
 #include "imageNet.h"
 #include "cudaMappedMemory.h"
 #include "cudaResize.h"
@@ -45,16 +46,16 @@ imageNet::~imageNet()
 imageNet* imageNet::Create( imageNet::NetworkType networkType, uint32_t maxBatchSize )
 {
 	imageNet* net = new imageNet();
-	
+
 	if( !net )
 		return NULL;
-	
+
 	if( !net->init(networkType, maxBatchSize) )
 	{
 		printf("imageNet -- failed to initialize.\n");
 		return NULL;
 	}
-	
+
 	return net;
 }
 
@@ -64,16 +65,16 @@ imageNet* imageNet::Create( const char* prototxt_path, const char* model_path, c
 							const char* class_path, const char* input, const char* output, uint32_t maxBatchSize )
 {
 	imageNet* net = new imageNet();
-	
+
 	if( !net )
 		return NULL;
-	
+
 	if( !net->init(prototxt_path, model_path, mean_binary, class_path, input, output, maxBatchSize) )
 	{
 		printf("imageNet -- failed to initialize.\n");
 		return NULL;
 	}
-	
+
 	return net;
 }
 
@@ -95,13 +96,13 @@ bool imageNet::init( imageNet::NetworkType networkType, uint32_t maxBatchSize )
 
 
 	mOutputClasses = mOutputs[0].dims.c;
-	
+
 	if( !loadClassInfo("networks/ilsvrc12_synset_words.txt") || mClassSynset.size() != mOutputClasses || mClassDesc.size() != mOutputClasses )
 	{
 		printf("imageNet -- failed to load synset class descriptions  (%zu / %zu of %u)\n", mClassSynset.size(), mClassDesc.size(), mOutputClasses);
 		return false;
 	}
-	
+
 	printf("%s initialized.\n", GetNetworkName());
 	return true;*/
 
@@ -144,17 +145,17 @@ bool imageNet::init(const char* prototxt_path, const char* model_path, const cha
 	 * load synset classnames
 	 */
 	mOutputClasses = DIMS_C(mOutputs[0].dims);
-	
+
 	if( !loadClassInfo(class_path) || mClassSynset.size() != mOutputClasses || mClassDesc.size() != mOutputClasses )
 	{
 		printf("imageNet -- failed to load synset class descriptions  (%zu / %zu of %u)\n", mClassSynset.size(), mClassDesc.size(), mOutputClasses);
 		return false;
 	}
-	
+
 	printf("%s initialized.\n", model_path);
 	return true;
 }
-			
+
 
 
 // Create
@@ -175,7 +176,7 @@ imageNet* imageNet::Create( int argc, char** argv )
 	}
 
 	//if( argc > 3 )
-	//	modelName = argv[3];	
+	//	modelName = argv[3];
 
 	imageNet::NetworkType type = imageNet::GOOGLENET;
 
@@ -198,12 +199,12 @@ imageNet* imageNet::Create( int argc, char** argv )
 		const char* input    = cmdLine.GetString("input_blob");
 		const char* output   = cmdLine.GetString("output_blob");
 		const char* out_bbox = cmdLine.GetString("output_bbox");
-		
+
 		if( !input ) 	input    = IMAGENET_DEFAULT_INPUT;
 		if( !output )  output   = IMAGENET_DEFAULT_OUTPUT;
-		
+
 		int maxBatchSize = cmdLine.GetInt("batch_size");
-		
+
 		if( maxBatchSize < 1 )
 			maxBatchSize = 2;
 
@@ -213,37 +214,37 @@ imageNet* imageNet::Create( int argc, char** argv )
 	// create from pretrained model
 	return imageNet::Create(type);
 }
-				 
+
 
 // loadClassInfo
 bool imageNet::loadClassInfo( const char* filename )
 {
 	if( !filename )
 		return false;
-	
+
 	FILE* f = fopen(filename, "r");
-	
+
 	if( !f )
 	{
 		printf("imageNet -- failed to open %s\n", filename);
 		return false;
 	}
-	
+
 	char str[512];
 
 	while( fgets(str, 512, f) != NULL )
 	{
 		const int syn = 9;  // length of synset prefix (in characters)
 		const int len = strlen(str);
-		
+
 		if( len > syn && str[0] == 'n' && str[syn] == ' ' )
 		{
 			str[syn]   = 0;
 			str[len-1] = 0;
-	
+
 			const std::string a = str;
 			const std::string b = (str + syn + 1);
-	
+
 			//printf("a=%s b=%s\n", a.c_str(), b.c_str());
 
 			mClassSynset.push_back(a);
@@ -264,14 +265,14 @@ bool imageNet::loadClassInfo( const char* filename )
 			mClassDesc.push_back(str);
 		}
 	}
-	
+
 	fclose(f);
-	
+
 	printf("imageNet -- loaded %zu class info entries\n", mClassSynset.size());
-	
+
 	if( mClassSynset.size() == 0 )
 		return false;
-	
+
 	return true;
 }
 
@@ -279,8 +280,8 @@ bool imageNet::loadClassInfo( const char* filename )
 
 // from imageNet.cu
 cudaError_t cudaPreImageNetMean( float4* input, size_t inputWidth, size_t inputHeight, float* output, size_t outputWidth, size_t outputHeight, const float3& mean_value );
-					
-					
+
+
 // Classify
 int imageNet::Classify( float* rgba, uint32_t width, uint32_t height, float* confidence )
 {
@@ -290,7 +291,7 @@ int imageNet::Classify( float* rgba, uint32_t width, uint32_t height, float* con
 		return -1;
 	}
 
-	
+
 	// downsample and convert to band-sequential BGR
 	if( CUDA_FAILED(cudaPreImageNetMean((float4*)rgba, width, height, mInputCUDA, mWidth, mHeight,
 								 make_float3(104.0069879317889f, 116.66876761696767f, 122.6789143406786f))) )
@@ -298,39 +299,88 @@ int imageNet::Classify( float* rgba, uint32_t width, uint32_t height, float* con
 		printf("imageNet::Classify() -- cudaPreImageNetMean failed\n");
 		return -1;
 	}
-	
-	
+
+
 	// process with GIE
 	void* inferenceBuffers[] = { mInputCUDA, mOutputs[0].CUDA };
-	
+
 	mContext->execute(1, inferenceBuffers);
-	
+
 	//CUDA(cudaDeviceSynchronize());
 	PROFILER_REPORT();
-	
-	
+
+
 	// determine the maximum class
 	int classIndex = -1;
 	float classMax = -1.0f;
-	
+
 	for( size_t n=0; n < mOutputClasses; n++ )
 	{
 		const float value = mOutputs[0].CPU[n];
-		
+
 		if( value >= 0.01f )
 			printf("class %04zu - %f  (%s)\n", n, value, mClassDesc[n].c_str());
-	
+
 		if( value > classMax )
 		{
 			classIndex = n;
 			classMax   = value;
 		}
 	}
-	
+
 	if( confidence != NULL )
 		*confidence = classMax;
-	
+
 	//printf("\nmaximum class:  #%i  (%f) (%s)\n", classIndex, classMax, mClassDesc[classIndex].c_str());
 	return classIndex;
 }
 
+std::vector<ClassifyResults> imageNet::ClassifyList( float* rgba, uint32_t width, uint32_t height )
+{
+	std::vector<ClassifyResults> results;
+
+	if( !rgba || width == 0 || height == 0 )
+	{
+		printf("imageNet::Classify( 0x%p, %u, %u ) -> invalid parameters\n", rgba, width, height);
+		return results;
+	}
+
+
+	// downsample and convert to band-sequential BGR
+	if( CUDA_FAILED(cudaPreImageNetMean((float4*)rgba, width, height, mInputCUDA, mWidth, mHeight,
+								 make_float3(104.0069879317889f, 116.66876761696767f, 122.6789143406786f))) )
+	{
+		printf("imageNet::Classify() -- cudaPreImageNetMean failed\n");
+		return results;
+	}
+
+
+	// process with GIE
+	void* inferenceBuffers[] = { mInputCUDA, mOutputs[0].CUDA };
+
+	mContext->execute(1, inferenceBuffers);
+
+	//CUDA(cudaDeviceSynchronize());
+	PROFILER_REPORT();
+
+	for( size_t n=0; n < mOutputClasses; n++ )
+	{
+		const float value = mOutputs[0].CPU[n];
+
+		if( value >= 0.01f )
+			printf("class %04zu - %f  (%s)\n", n, value, mClassDesc[n].c_str());
+
+		ClassifyResults result;
+		result.classIndex = n;
+		result.confidence = value;
+		results.push_back(result);
+	}
+
+	std::sort(results.begin(), results.end(),
+		[](const ClassifyResults& lhs, const ClassifyResults& rhs) {
+			return lhs.confidence > rhs.confidence;
+		});
+
+	//printf("\nmaximum class:  #%i  (%f) (%s)\n", classIndex, classMax, mClassDesc[classIndex].c_str());
+	return results;
+}

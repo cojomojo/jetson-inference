@@ -1,27 +1,55 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        {
-            "name": "(gdb) Launch",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/aarch64/bin/imagenet-camera",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/aarch64",
-            "environment": [],
-            "externalConsole": true,
-            "MIMode": "aarch64-linux-gnu-gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ]
+      {
+        "name": "Remote launch imagenet-kiwirover",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${workspaceRoot}/build/aarch64/bin/imagenet-kiwirover",
+        "miDebuggerServerAddress": "localhost:9091",
+        "args": [],
+        "stopAtEntry": false,
+        "cwd": "${workspaceRoot}/build/aarch64/bin/",
+        "environment": [],
+        "externalConsole": true,
+        "sourceFileMap": {
+          "/home/nvidia/Src": "/home/cbalos/RemoteProjects"
+        },
+        "linux": {
+          "MIMode": "gdb",
+          "miDebuggerPath": "/usr/local/bin/aarch64-linux-gnu-gdb"
+        },
+        "osx": {
+          "MIMode": "gdb"
+        },
+        "windows": {
+          "MIMode": "gdb"
         }
+      },
+      {
+        "name": "Remote launch pylon-camera",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${workspaceRoot}/build/aarch64/bin/pylon-camera",
+        "miDebuggerServerAddress": "localhost:9091",
+        "args": [],
+        "stopAtEntry": false,
+        "cwd": "${workspaceRoot}/build/aarch64/bin/",
+        "environment": [],
+        "externalConsole": true,
+        "sourceFileMap": {
+          "/home/nvidia/Src": "/home/cbalos/RemoteProjects"
+        },
+        "linux": {
+          "MIMode": "gdb",
+          "miDebuggerPath": "/usr/local/bin/aarch64-linux-gnu-gdb"
+        },
+        "osx": {
+          "MIMode": "gdb"
+        },
+        "windows": {
+          "MIMode": "gdb"
+        }
+      }
     ]
-}
+  }

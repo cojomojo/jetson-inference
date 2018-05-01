@@ -21,7 +21,6 @@
  */
 
 #include "camera.h"
-#include "CameraNode.h"
 #include "gstCamera.h"
 #include "pylonCamera.h"
 
@@ -38,7 +37,7 @@
 
 
 #define DEFAULT_CAMERA -1	// -1 for onboard camera, or change to index of /dev/video V4L2 camera (>=0)
-
+#define SLOW_DEMO_MODE 0
 
 
 bool signal_recieved = false;
@@ -73,11 +72,9 @@ int main( int argc, char** argv )
 	/*
 	 * create the camera device
 	 */
-	// camera* camera = gstCamera::Create(DEFAULT_CAMERA);
-	CameraNode cam1("22279978");
-	std::vector<CameraNode*> cameras = { &cam1 };
-	pylonCamera pcam(cameras, 1280, 960);
-	camera* camera = &pcam;
+	//camera* camera = gstCamera::Create(DEFAULT_CAMERA);
+	std::vector<std::string> cameras = { "22334243", "22279978" };
+	camera* camera = new pylonCamera(cameras, 256, 256, 30, 32);
 
 	if( !camera )
 	{
@@ -150,16 +147,16 @@ int main( int argc, char** argv )
 		void* imgCUDA = NULL;
 
 		// get the latest frame
-		if( !camera->Capture(&imgCPU, &imgCUDA, 1000) )
+		uint32_t camIndex = camera->Capture(&imgCPU, &imgCUDA, 100);
+		if (camIndex < 0)
 			printf("\nimagenet-camera:  failed to capture frame\n");
-		//else
-		//	printf("imagenet-camera:  recieved new frame  CPU=0x%p  GPU=0x%p\n", imgCPU, imgCUDA);
+		else
+			printf("imagenet-camera:  received new frame CAMIDX=%d  CPU=0x%p  GPU=0x%p\n", camIndex, imgCPU, imgCUDA);
 
-		// convert from YUV to RGBA
 		void* imgRGBA = NULL;
 
 		if( !camera->ConvertRGBtoRGBA(imgCUDA, &imgRGBA) )
-			printf("imagenet-camera:  failed to convert from NV12 to RGBA\n");
+			printf("imagenet-camera:  failed to convert from RGB to RGBA\n");
 
 		// classify image
 		const int img_class = net->Classify((float*)imgRGBA, camera->GetWidth(), camera->GetHeight(), &confidence);
@@ -185,7 +182,6 @@ int main( int argc, char** argv )
 				display->SetTitle(str);
 			}
 		}
-
 
 		// update display
 		if( display != NULL )
@@ -215,6 +211,9 @@ int main( int argc, char** argv )
 
 			display->EndRender();
 		}
+#if SLOW_DEMO_MODE
+		usleep(1000*3*1000);
+#endif
 	}
 
 	printf("\nimagenet-camera:  un-initializing video device\n");
